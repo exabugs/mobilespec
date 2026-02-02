@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/ui-structure.schema.json",
+  "title": "UI Structure Schema (L3)",
+  "type": "object",
+  "required": ["screen"],
+  "additionalProperties": false,
+
+  "properties": {
+    "screen": {
+      "type": "object",
+      "required": ["id", "layout"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Screen id (must match L2 screen.id)"
+        },
+        "context": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Optional screen context (e.g. nearby, owned)"
+        },
+        "layoutVariant": {
+          "type": "string",
+          "enum": ["default", "custom", "fullscreen"],
+          "default": "default",
+          "description": "Screen layout variant"
+        },
+        "appBar": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "variant": {
+              "type": "string",
+              "enum": ["default", "back", "close", "none"],
+              "default": "back",
+              "description": "AppBar variant (default=back with back button, use 'default' for entry screens like home)"
+            }
+          }
+        },
+        "bottomBar": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "visible": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show bottom navigation bar"
+            }
+          }
+        },
+        "layout": {
+          "$ref": "#/$defs/layout"
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "layout": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["column", "row", "stack", "grid", "adaptiveGrid"]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Layout-level configuration (e.g. columns, gap)"
+        }
+      }
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["component", "id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "type": "string",
+          "description": "Component type name (e.g. AppBar, HomeCard)"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Japanese display name (i18n source)"
+        },
+
+        "layout": {
+          "$ref": "#/$defs/layout"
+        },
+
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+
+        "props": {
+          "type": "object",
+          "additionalProperties": true
+        },
+
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Reference to L2 transition.id"
+        },
+
+        "fixed": {
+          "type": "boolean",
+          "description": "Fixed position (e.g. BottomBar)"
+        },
+
+        "repeatFrom": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Repeat source key from L4 state"
+        },
+
+        "visibleWhen": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Visibility condition key (evaluated in L4)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/screenflow.schema.json",
+  "title": "Screenflow Schema (L2)",
+  "type": "object",
+  "required": ["screen"],
+  "additionalProperties": false,
+
+  "properties": {
+    "screen": {
+      "type": "object",
+      "required": ["id", "name", "type", "group", "transitions"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "const": "screen"
+        },
+
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9999
+        },
+
+        "context": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+
+        "entry": {
+          "type": "boolean"
+        },
+
+        "exit": {
+          "type": "boolean"
+        },
+
+        "transitions": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "transition": {
+      "type": "object",
+      "required": ["id", "trigger", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Semantic action id (open_xxx, back_to_xxx, reload_xxx)"
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["tap", "auto"]
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "targetContext": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      }
+    }
+  }
+}

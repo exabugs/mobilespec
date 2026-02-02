@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/state.schema.json",
+  "title": "State Schema (L4)",
+  "type": "object",
+  "required": ["screen"],
+  "additionalProperties": false,
+  "properties": {
+    "screen": {
+      "type": "object",
+      "required": ["id", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^screen_[a-z][a-z0-9_]*$",
+          "description": "Screen id (must match L2/L3 screen.id)"
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/state"
+          }
+        },
+        "dataSources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dataSource"
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "state": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^state_[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Japanese display name"
+        },
+        "initial": {
+          "type": "boolean",
+          "default": false,
+          "description": "Initial state"
+        }
+      }
+    },
+    "dataSource": {
+      "type": "object",
+      "required": ["id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^data_[a-z][a-z0-9_]*$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["api", "localStorage", "static"]
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "API endpoint (for type=api)"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE"],
+          "default": "GET"
+        },
+        "key": {
+          "type": "string",
+          "description": "Storage key (for type=localStorage)"
+        },
+        "value": {
+          "description": "Static value (for type=static)"
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "required": ["id", "expression"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^cond_[a-z][a-z0-9_]*$"
+        },
+        "expression": {
+          "type": "string",
+          "description": "Boolean expression"
+        }
+      }
+    }
+  }
+}
