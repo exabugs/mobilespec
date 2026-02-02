@@ -1,6 +1,6 @@
 {
   "name": "@exabugs/mobilespec",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "type": "module",
   "description": "モバイルアプリ仕様管理ライブラリ - L2/L3/L4仕様の定義、バリデーション、生成ツール",
   "keywords": [
