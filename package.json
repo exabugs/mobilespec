@@ -3,11 +3,35 @@
   "version": "1.0.0",
   "type": "module",
   "description": "モバイルアプリ仕様管理ライブラリ - L2/L3/L4仕様の定義、バリデーション、生成ツール",
+  "keywords": [
+    "mobile",
+    "specification",
+    "validation",
+    "yaml",
+    "mermaid",
+    "i18n",
+    "screen-flow",
+    "ui-spec"
+  ],
+  "homepage": "https://github.com/yourusername/mobilespec#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/mobilespec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/mobilespec/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "mobilespec": "dist/bin/cli.js"
   },
+  "files": [
+    "dist",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -28,13 +52,14 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev:validate": "tsx src/validate.ts",
     "dev:mermaid": "tsx src/generateMermaid.ts",
     "dev:i18n": "tsx src/generateI18n.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.19.30",
@@ -47,5 +72,8 @@
   "optionalDependencies": {
     "tsx": "^4.7.0",
     "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
