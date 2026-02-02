@@ -5,9 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { validate, type Screen, type Transition, GROUP_ORDER, type ValidateOptions } from './validate.js';
-
-type GroupName = keyof typeof GROUP_ORDER;
+import { validate, type Screen, type Transition, type ValidateOptions } from './validate.js';
 
 /* ================================
  * Helpers
@@ -32,7 +30,11 @@ function mermaidId(raw: string): string {
  * Generate Mermaid
  * ================================ */
 
-function generateMermaidContent(screens: Map<string, Screen>, transitions: Transition[]): string {
+function generateMermaidContent(
+  screens: Map<string, Screen>,
+  transitions: Transition[],
+  groupOrder: string[]
+): string {
   const lines: string[] = [];
 
   lines.push('```mermaid');
@@ -57,7 +59,7 @@ function generateMermaidContent(screens: Map<string, Screen>, transitions: Trans
   }
 
   /* ---- collect groups ---- */
-  const groups = new Map<GroupName, Array<{ key: string; screen: Screen }>>();
+  const groups = new Map<string, Array<{ key: string; screen: Screen }>>();
 
   for (const [key, s] of screens.entries()) {
     if (!groups.has(s.group)) groups.set(s.group, []);
@@ -65,8 +67,13 @@ function generateMermaidContent(screens: Map<string, Screen>, transitions: Trans
   }
 
   /* ---- sort groups ---- */
+  const groupOrderMap = new Map<string, number>();
+  groupOrder.forEach((group, index) => {
+    groupOrderMap.set(group, index);
+  });
+
   const sortedGroups = Array.from(groups.entries()).sort(
-    ([a], [b]) => GROUP_ORDER[a] - GROUP_ORDER[b]
+    ([a], [b]) => (groupOrderMap.get(a) ?? 99) - (groupOrderMap.get(b) ?? 99)
   );
 
   /* ---- sort screens in group (order asc) ---- */
@@ -142,7 +149,11 @@ export async function generateMermaid(options: ValidateOptions): Promise<void> {
   }
 
   // Mermaid図生成
-  const mermaidContent = generateMermaidContent(result.screens, result.transitions);
+  const mermaidContent = generateMermaidContent(
+    result.screens,
+    result.transitions,
+    result.config.mermaid.groupOrder
+  );
 
   fs.writeFileSync(outputFile, mermaidContent, 'utf-8');
   console.log(`\n✅ Mermaid 図を生成しました: ${path.resolve(outputFile)}`);

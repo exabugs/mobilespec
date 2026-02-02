@@ -1,0 +1,25 @@
+# mobilespec Configuration File
+# Place this file as `mobilespec.config.yml` in your specs directory
+
+mermaid:
+  # グループの表示順序を定義
+  # 配列の順序から自動的にorder値が生成されます
+  # 未定義のグループは末尾に表示されます
+  groupOrder:
+    - Home
+    - Task
+    - Venue
+    - Misc
+  
+  # 画面IDの表示順序を定義（各グループ内での順序）
+  # 配列の順序から自動的にorder値が生成されます
+  # 未定義の画面は末尾に表示されます
+  screenOrder:
+    - screen_home
+    - screen_stamp_book
+    - screen_stamp_detail
+    - screen_task_list
+    - screen_task_detail
+    - screen_venue_list
+    - screen_venue_detail
+    - screen_settings

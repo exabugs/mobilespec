@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MobileSpec Configuration",
+  "type": "object",
+  "properties": {
+    "mermaid": {
+      "type": "object",
+      "properties": {
+        "groupOrder": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "画面グループの表示順序"
+        },
+        "screenOrder": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "各グループ内の画面ID表示順序"
+        }
+      },
+      "required": ["groupOrder"]
+    }
+  },
+  "required": ["mermaid"]
+}

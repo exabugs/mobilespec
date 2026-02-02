@@ -6,26 +6,20 @@ import path from 'path';
 import Ajv from 'ajv/dist/2020.js';
 
 /* ================================
- * Constants
- * ================================ */
-
-export const GROUP_ORDER = {
-  Home: 1,
-  Task: 2,
-  Venue: 3,
-  Misc: 99,
-} as const;
-
-type GroupName = keyof typeof GROUP_ORDER;
-
-/* ================================
  * Types
  * ================================ */
+
+export type MobileSpecConfig = {
+  mermaid: {
+    groupOrder: string[];
+    screenOrder?: string[];
+  };
+};
 
 export type Screen = {
   id: string;
   name: string;
-  group: GroupName;
+  group: string;
   order?: number;
   entry?: boolean;
   exit?: boolean;
@@ -48,6 +42,7 @@ export type UIAction = {
 
 export type ValidationResult = {
   screens: Map<string, Screen>;
+  config: MobileSpecConfig;
   transitions: Transition[];
   uiActions: UIAction[];
   stateScreens: Set<string>;
@@ -126,10 +121,46 @@ function validateSchema(files: YamlFile[], schemaPath: string, label: string): s
 }
 
 /* ================================
+ * Load Config
+ * ================================ */
+
+function loadConfig(specsDir: string): MobileSpecConfig {
+  const configPath = path.join(specsDir, 'mobilespec.config.yml');
+  
+  // デフォルト設定
+  const defaultConfig: MobileSpecConfig = {
+    mermaid: {
+      groupOrder: ['Home', 'Task', 'Venue', 'Misc'],
+      screenOrder: [],
+    },
+  };
+
+  if (!fs.existsSync(configPath)) {
+    return defaultConfig;
+  }
+
+  try {
+    const configData = yaml.load(fs.readFileSync(configPath, 'utf-8')) as any;
+    return {
+      mermaid: {
+        groupOrder: configData.mermaid?.groupOrder || defaultConfig.mermaid.groupOrder,
+        screenOrder: configData.mermaid?.screenOrder || defaultConfig.mermaid.screenOrder,
+      },
+    };
+  } catch (error) {
+    console.warn(`⚠️  設定ファイルの読み込みに失敗しました: ${configPath}`);
+    return defaultConfig;
+  }
+}
+
+/* ================================
  * Collect Screens and Transitions
  * ================================ */
 
-function collectScreensAndTransitions(files: YamlFile[]): {
+function collectScreensAndTransitions(
+  files: YamlFile[],
+  config: MobileSpecConfig
+): {
   screens: Map<string, Screen>;
   transitions: Transition[];
   errors: string[];
@@ -138,22 +169,32 @@ function collectScreensAndTransitions(files: YamlFile[]): {
   const variantsById = new Map<string, Screen[]>();
   const errors: string[] = [];
 
+  // グループの順序マップを作成
+  const groupOrderMap = new Map<string, number>();
+  config.mermaid.groupOrder.forEach((group, index) => {
+    groupOrderMap.set(group, index + 1);
+  });
+
+  // 画面IDの順序マップを作成
+  const screenOrderMap = new Map<string, number>();
+  (config.mermaid.screenOrder || []).forEach((screenId, index) => {
+    screenOrderMap.set(screenId, index + 1);
+  });
+
   // screen を全部集める
   for (const file of files) {
     const doc = file.data;
     const screen = doc.screen;
     if (!screen) continue;
 
-    if (!(screen.group in GROUP_ORDER)) {
-      errors.push(`❌ Unknown group: ${screen.group} (screen: ${screen.id})`);
-      continue;
-    }
+    // 画面の順序を設定（screenOrderMapに定義があればそれを使用、なければ99）
+    const screenOrder = screenOrderMap.get(screen.id) || 99;
 
     const s: Screen = {
       id: screen.id,
       name: screen.name,
-      group: screen.group as GroupName,
-      order: screen.order,
+      group: screen.group,
+      order: screenOrder,
       entry: screen.entry === true,
       exit: screen.exit === true,
       context: typeof screen.context === 'string' ? screen.context : undefined,
@@ -376,13 +417,16 @@ export function validate(options: ValidateOptions): ValidationResult {
   const uiFiles = loadYamlFiles(UI_DIR, '.ui.yaml');
   const stateFiles = loadYamlFiles(STATE_DIR, '.state.yaml');
 
+  // 設定ファイル読み込み
+  const config = loadConfig(options.specsDir);
+
   // スキーマバリデーション
   const l2SchemaErrors = validateSchema(flowFiles, L2_SCHEMA_PATH, 'L2');
   const l3SchemaErrors = validateSchema(uiFiles, L3_SCHEMA_PATH, 'L3');
   const l4SchemaErrors = validateSchema(stateFiles, L4_SCHEMA_PATH, 'L4');
 
   // L2バリデーション
-  const { screens, transitions, errors: l2Errors } = collectScreensAndTransitions(flowFiles);
+  const { screens, transitions, errors: l2Errors } = collectScreensAndTransitions(flowFiles, config);
   const warnings = validateTransitions(screens, transitions);
 
   // L3バリデーション
@@ -397,6 +441,7 @@ export function validate(options: ValidateOptions): ValidationResult {
 
   return {
     screens,
+    config,
     transitions,
     uiActions,
     stateScreens,

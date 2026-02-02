@@ -26,13 +26,8 @@
 
         "group": {
           "type": "string",
-          "minLength": 1
-        },
-
-        "order": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9999
+          "minLength": 1,
+          "description": "画面グループ（例: Home, Task, Venue, Misc）"
         },
 
         "context": {
