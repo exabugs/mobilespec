@@ -3,7 +3,7 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
 import path from 'path';
-import Ajv from 'ajv/dist/2020';
+import Ajv from 'ajv/dist/2020.js';
 
 /* ================================
  * Constants
