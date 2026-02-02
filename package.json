@@ -13,14 +13,15 @@
     "screen-flow",
     "ui-spec"
   ],
-  "homepage": "https://github.com/yourusername/mobilespec#readme",
+  "homepage": "https://github.com/exabugs/mobilespec#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/mobilespec.git"
+    "url": "git+https://github.com/exabugs/mobilespec.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/mobilespec/issues"
+    "url": "https://github.com/exabugs/mobilespec/issues"
   },
+
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
