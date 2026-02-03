@@ -141,8 +141,8 @@ function generateMermaidContent(
 
   if (entryIds.length || exitIds.length) {
     lines.push('%% --- Entry / Exit styles ---');
-    lines.push('classDef entry fill:#e3f2fd,stroke:#2196f3,stroke-width:2px;');
-    lines.push('classDef exit fill:#ffebee,stroke:#c62828,stroke-width:2px;');
+    lines.push('classDef entry stroke:#2196f3,stroke-width:2px;');
+    lines.push('classDef exit stroke:#c62828,stroke-width:2px;');
     lines.push('');
   }
 
