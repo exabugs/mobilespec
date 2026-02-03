@@ -9,7 +9,7 @@
   "properties": {
     "screen": {
       "type": "object",
-      "required": ["id", "name", "type", "group", "transitions"],
+      "required": ["id", "name", "type", "transitions"],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -22,12 +22,6 @@
         "type": {
           "type": "string",
           "const": "screen"
-        },
-
-        "group": {
-          "type": "string",
-          "minLength": 1,
-          "description": "画面グループ（例: Home, Task, Venue, Misc）"
         },
 
         "context": {

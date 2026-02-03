@@ -69,24 +69,39 @@ function displayId(id: string, context?: string): string {
 type YamlFile = {
   path: string;
   data: any;
+  group: string; // ディレクトリ構造から決定されるグループ
 };
 
 function loadYamlFiles(dir: string, extension: string): YamlFile[] {
   const results: YamlFile[] = [];
 
-  if (!fs.existsSync(dir)) return results;
+  function traverse(currentDir: string, relativePath: string = '') {
+    if (!fs.existsSync(currentDir)) return;
 
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = path.join(currentDir, entry.name);
+      const newRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-    if (entry.isDirectory()) {
-      results.push(...loadYamlFiles(fullPath, extension));
-    } else if (entry.isFile() && entry.name.endsWith(extension)) {
-      const data = yaml.load(fs.readFileSync(fullPath, 'utf-8'));
-      results.push({ path: fullPath, data });
+      if (entry.isDirectory()) {
+        traverse(fullPath, newRelativePath);
+      } else if (entry.isFile() && entry.name.endsWith(extension)) {
+        const data = yaml.load(fs.readFileSync(fullPath, 'utf-8'));
+        
+        // ディレクトリ構造からグループを決定
+        // screenflows/ 直下のファイル → グループなし ('')
+        // screenflows/home/xxx.yaml → 'Home'
+        // screenflows/venue/nearby/xxx.yaml → 'Venue/Nearby'
+        const dirPath = path.dirname(newRelativePath);
+        const group = dirPath === '.' ? '' : dirPath.split(path.sep)
+          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+          .join('/');
+        
+        results.push({ path: fullPath, data, group });
+      }
     }
   }
 
+  traverse(dir);
   return results;
 }
 
@@ -193,7 +208,7 @@ function collectScreensAndTransitions(
     const s: Screen = {
       id: screen.id,
       name: screen.name,
-      group: screen.group,
+      group: file.group, // ディレクトリ構造から決定
       order: screenOrder,
       entry: screen.entry === true,
       exit: screen.exit === true,
