@@ -18,6 +18,7 @@ mobilespec/
 ├── package.json        # パッケージ定義
 ├── tsconfig.json       # TypeScript設定
 ├── schema/             # JSON スキーマ定義
+│   ├── mobilespec.config.schema.json  # 設定ファイルスキーマ
 │   ├── L2.screenflows.schema.json
 │   ├── L3.ui.schema.json
 │   └── L4.state.schema.json
@@ -36,6 +37,34 @@ mobilespec/
     └── bin/
         └── cli.js      # 実行可能CLI
 ```
+
+## 設定ファイル
+
+specsディレクトリに`mobilespec.config.yml`を配置することで、Mermaid図の表示順序をカスタマイズできます。
+
+```yaml
+# mobilespec.config.yml
+mermaid:
+  # グループの表示順序を定義
+  # 配列の順序から自動的にorder値が生成されます
+  # 未定義のグループは末尾に表示されます
+  groupOrder:
+    - Home
+    - Task
+    - Venue
+    - Misc
+  
+  # 画面IDの表示順序を定義（各グループ内での順序）
+  # 配列の順序から自動的にorder値が生成されます
+  # 未定義の画面は末尾に表示されます
+  screenOrder:
+    - screen_home
+    - screen_stamp_book
+    - screen_venue_list
+    - screen_settings
+```
+
+設定ファイルがない場合は、デフォルト値が使用されます。
 
 ## インストール
 
@@ -97,7 +126,12 @@ make validate # バリデーションのみ
 
 **目的**: アプリ全体の画面遷移フローを定義
 
-**ファイル**: `screenflows/*.flow.yaml`
+**ファイル**: `screenflows/**/*.flow.yaml`
+
+**ディレクトリ構造でグループを管理**:
+- `screenflows/` 直下: グループなし
+- `screenflows/home/`: `Home`グループ
+- `screenflows/venue/nearby/`: `Venue/Nearby`サブグループ（入れ子）
 
 **内容**:
 - 画面ID（screen_xxx）
@@ -107,18 +141,18 @@ make validate # バリデーションのみ
 
 **例**:
 ```yaml
-context: auth
-screens:
-  - id: screen_splash
-    type: entry
-  - id: screen_onboarding
-  - id: screen_home
-    type: exit
-transitions:
-  - id: action_start_onboarding
-    from: screen_splash
-    to: screen_onboarding
+screen:
+  id: screen_splash
+  name: スプラッシュ
+  type: screen
+  entry: true
+  transitions:
+    - id: action_start_onboarding
+      trigger: auto
+      target: screen_onboarding
 ```
+
+**注意**: `group`フィールドは不要です。ディレクトリ構造から自動的に決定されます。
 
 ### L3: UI定義（UI Specifications）
 
