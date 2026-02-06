@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/schemas/state.schema.json",
+  "$id": "https://github.com/exabugs/mobilespec/schema/L4.state.schema.json",
   "title": "State Schema (L4)",
   "type": "object",
   "required": ["screen"],
