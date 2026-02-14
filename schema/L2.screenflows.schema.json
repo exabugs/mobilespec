@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/exabugs/mobilespec/main/schema/L2.screenflows.schema.json",
+  "$id": "urn:mobilespec:L2.screenflows",
   "title": "Screenflow Schema (L2)",
   "type": "object",
   "required": ["screen"],

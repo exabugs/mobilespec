@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/exabugs/mobilespec/main/schema/L3.ui.schema.json",
+  "$id": "urn:mobilespec:L3.ui",
   "title": "UI Structure Schema (L3)",
   "type": "object",
   "required": ["screen"],

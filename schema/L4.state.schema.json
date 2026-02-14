@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/exabugs/mobilespec/main/schema/L4.state.schema.json",
+  "$id": "urn:mobilespec:L4.state",
   "title": "State & Data Contract Schema (L4)",
   "type": "object",
   "required": ["screen"],
