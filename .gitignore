@@ -21,7 +21,6 @@ npm-debug.log*
 .env.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
