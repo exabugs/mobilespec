@@ -15,36 +15,48 @@
           "type": "string",
           "pattern": "^screen_[a-z][a-z0-9_]*$"
         },
+
         "states": {
           "type": "array",
           "items": { "$ref": "#/$defs/state" }
         },
+
         "data": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "queries": {
               "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/apiCall" }
+              "additionalProperties": { "$ref": "#/$defs/apiCall" },
+              "default": {}
             },
             "mutations": {
               "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/apiCall" }
+              "additionalProperties": { "$ref": "#/$defs/apiCall" },
+              "default": {}
             }
           }
         },
+
         "events": {
           "type": "object",
           "description": "L2.transition.id をキーにしたイベント定義",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
           "additionalProperties": { "$ref": "#/$defs/event" }
         },
+
         "conditions": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": { "type": "string" },
+          "default": {}
         }
       }
     }
   },
+
   "$defs": {
     "state": {
       "type": "object",
@@ -56,6 +68,7 @@
         "initial": { "type": "boolean", "default": false }
       }
     },
+
     "apiCall": {
       "type": "object",
       "required": ["operationId"],
@@ -63,25 +76,49 @@
       "properties": {
         "operationId": { "type": "string", "minLength": 1 },
         "selectRoot": { "type": "string", "default": "$.data" },
+
         "params": { "type": "object", "additionalProperties": true },
         "select": { "type": "object", "additionalProperties": true },
+
         "invalidate": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "type": "string" },
+          "default": []
         }
       }
     },
+
     "event": {
-      "type": "object",
-      "required": ["type"],
-      "additionalProperties": false,
-      "properties": {
-        "type": { "type": "string", "enum": ["refetch", "navigate", "setState"] },
-        "target": { "type": "string" },
-        "targetScreenId": { "type": "string" },
-        "params": { "type": "object", "additionalProperties": true },
-        "patch": { "type": "object", "additionalProperties": true }
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "targetScreenId"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "navigate" },
+            "targetScreenId": { "type": "string", "minLength": 1 },
+            "params": { "type": "object", "additionalProperties": true }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "target"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "refetch" },
+            "target": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "patch"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "setState" },
+            "patch": { "type": "object", "additionalProperties": true }
+          }
+        }
+      ]
     }
   }
 }
