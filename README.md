@@ -28,26 +28,74 @@ SDD は、
 1. 構造が正、実装は生成物
 2. OpenAPI は API 契約の唯一の正
 3. L2/L3/L4 は UI 契約の唯一の正
-4. BFF API レスポンスは統一型（例：`ApiResponse<T>`）
-5. L4 は `operationId` のみ参照（URL直書き禁止）
-6. i18n はキー参照のみ
-7. 契約違反は CI で検知（AI不要）
+4. L4 は `operationId` のみ参照（URL直書き禁止）
+5. i18n はキー参照のみ
+6. 契約違反は CLI / CI で検知（AI不要）
+7. AI は生成担当、検知はコマンドで担保
 
 ---
 
-# 📐 SDD アーキテクチャ
+# 🔗 SDD 接続ルール（正式仕様）
+
+## 1️⃣ L3 → L2
+
+- `L3.action`
+- `L2.transitions[].id`
+
+は **完全一致**
+
+違反 → ❌ error
+
+---
+
+## 2️⃣ L2 → L4
+
+- `L4.events` のキー
+- `L2.transitions[].id`
+
+は **完全一致**
+
+違反 → ⚠️ warning（将来 strict で error）
+
+---
+
+## 3️⃣ L4 内部接続
+
+- `callQuery.query`
+  → `L4.data.queries` のキー参照
+- `callMutation.mutation`
+  → `L4.data.mutations` のキー参照
+
+未定義参照 → ⚠️ warning
+
+---
+
+## 4️⃣ L4 → OpenAPI（契約整合）
+
+- `L4.data.*.*.operationId`
+  → OpenAPI `operationId`
+
+存在しない → ❌ error
+OpenAPI未参照 → ⚠️ warning（strict で error）
+
+---
+
+# 📐 全体接続構造
 
 ```
-OpenAPI
-   ↑
-L4 (State / Data契約)
-   ↑
-L3 (UI構造)
-   ↑
-L2 (画面遷移)
+L3 (UI action)
+      ↓
+L2 (transition.id)
+      ↓
+L4 (events key)
+      ↓
+L4.data (query/mutation key)
+      ↓
+OpenAPI.operationId
 ```
 
-mobilespec は L2/L3/L4 を管理します。
+この縦接続が成立している状態を
+**構造整合（Structural Integrity）** と呼ぶ。
 
 ---
 
@@ -55,15 +103,10 @@ mobilespec は L2/L3/L4 を管理します。
 
 ```
 specs/
-  L2/
-    screen_home.yaml
-  L3/
-    screen_home.yaml
-  L4/
-    screen_home.yaml
+  L2.screenflows/
+  L3.ui/
+  L4.state/
   i18n/
-    ja.yaml
-    en.yaml
 ```
 
 原則：
@@ -74,78 +117,52 @@ specs/
 
 # 🔧 CLI
 
-## validate
+## 通常開発
 
 ```bash
-node dist/bin/cli.js validate --specs-dir ./specs
+pnpm run sdd:check
+pnpm run sdd:openapi
 ```
 
-## mermaid
+## 締め（CI / リリース前）
 
 ```bash
-node dist/bin/cli.js mermaid --specs-dir ./specs
-```
-
-## i18n
-
-```bash
-node dist/bin/cli.js i18n --specs-dir ./specs
-```
-
-## check（CI向け推奨）
-
-```bash
-node dist/bin/cli.js check --specs-dir ./specs
-```
-
-## openapi-check（将来のoperationId整合性）
-
-```bash
-node dist/bin/cli.js openapi-check \
-  --specs-dir ./specs \
-  --openapi ./openapi.yaml
+pnpm run sdd:openapi:strict
 ```
 
 ---
 
+# 🔍 CLI が検知するもの
+
+### validate / check
+
+- L2 schema validation
+- L3 schema validation
+- L4 schema validation
+- L2-L3 整合性（error）
+- L2-L4 整合性（warning）
+- L4内部整合（warning）
+
+### openapi-check
+
+- operationId 未定義（error）
+- operationId 重複（error）
+- L4 が存在しない operationId 参照（error）
+- OpenAPI 未参照 operationId（warning / strictでerror）
+
+---
+
 # 🚀 GitHub Actions（Reusable Workflow）
-
-mobilespec は SDD チェック用の reusable workflow を提供します。
-
-## 呼び出し側（asanowa等）
 
 ```yaml
 jobs:
   sdd:
     uses: exabugs/mobilespec/.github/workflows/sdd-check.yml@v0.1.0
     with:
-      specs_dir: .kiro/specs/asanowa/mobile
-      openapi_path: openapi/bff.yaml
-      fail_on_warnings: true
+      specs_dir: specs/mobile
+      openapi_path: docs/specs/openapi.bundled.yaml
+      fail_on_warnings: false
 ```
-
-## 入力パラメータ
-
-| Name             | Required | Default       | 説明                       |
-| ---------------- | -------- | ------------- | -------------------------- |
-| specs_dir        | ✓        | -             | L2/L3/L4 ルート            |
-| schema_dir       |          | schema        | JSON schema ディレクトリ   |
-| openapi_path     |          | ""            | OpenAPI パス               |
-| fail_on_warnings |          | true          | 警告で失敗する             |
-| upload_artifacts |          | true          | Mermaid/i18n を artifact化 |
-| artifact_name    |          | sdd-generated | artifact名                 |
-
----
-
-# 🔍 CI で検知されるもの
-
-- L2 schema validation
-- L3 schema validation
-- L4 schema validation
-- L2-L3 整合性
-- L2-L4 整合性
-- i18n key 整合性
-- （将来）operationId 整合性
 
 ---
 
@@ -155,42 +172,36 @@ jobs:
 - フレームワーク移行可能
 - AI が構造だけ読めば生成可能
 - トークン消費最小
-
----
-
-# 📜 ドキュメント
-
-- docs/SDD_PRINCIPLES.md
-- docs/SDD_RULES.md
-- docs/SDD_CI_POLICY.md
-- docs/SDD_LIFECYCLE.md
+- 契約違反は自動検知
 
 ---
 
 # 🔥 mobilespec の役割
 
-mobilespec は：
+mobilespec は
 
-> SDD の公式仕様エンジン
+> SDD の構造検証エンジン
 
 です。
 
-実装を正とせず、構造を正とする開発を実現します。
+コードを正とせず、
+**構造を正とする開発**を実現します。
 
 ---
 
-ここまでで、mobilespec は
+## ✅ 現在の成熟度
 
-✔ ライブラリ
-→ ✔ SDD エンジン
-
-に進化しました。
+- L2/L3/L4 整合検証
+- operationId 契約整合
+- strict モード
+- CI 統合
+- 生成物（Mermaid / i18n）出力
 
 ---
 
-次は、
+次の進化としては、
 
-- asanowa 側の README に SDD 導入宣言を書く
-- SDD versioning（v0.1 / v1.0 定義）を決める
+- strict モードを「events 起点参照のみ」に高度化
+- SDD Versioning（0.x → 1.0）定義
 
-どちらを進めますか？
+どちらに進めますか？
