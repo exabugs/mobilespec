@@ -3,26 +3,36 @@
   "$id": "https://github.com/exabugs/mobilespec/schema/mobilespec.config.schema.json",
   "title": "MobileSpec Configuration",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "l2": { "type": "string", "default": "L2.screenflows" },
+        "l3": { "type": "string", "default": "L3.ui" },
+        "l4": { "type": "string", "default": "L4.state" }
+      }
+    },
     "mermaid": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "groupOrder": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "画面グループの表示順序"
-        },
-        "screenOrder": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "各グループ内の画面ID表示順序"
-        }
+        "groupOrder": { "type": "array", "items": { "type": "string" } },
+        "screenOrder": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["groupOrder"]
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowNoIncoming": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "遷移元が無いことを許可する screen.id（例: screen_auth_callback）"
+        }
+      }
     }
   },
   "required": ["mermaid"]

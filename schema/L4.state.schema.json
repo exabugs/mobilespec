@@ -1,39 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/exabugs/mobilespec/schema/L4.state.schema.json",
-  "title": "State Schema (L4)",
+  "title": "State & Data Contract Schema (L4)",
   "type": "object",
   "required": ["screen"],
   "additionalProperties": false,
   "properties": {
     "screen": {
       "type": "object",
-      "required": ["id", "states"],
+      "required": ["id"],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^screen_[a-z][a-z0-9_]*$",
-          "description": "Screen id (must match L2/L3 screen.id)"
+          "pattern": "^screen_[a-z][a-z0-9_]*$"
         },
         "states": {
           "type": "array",
-          "minItems": 1,
-          "items": {
-            "$ref": "#/$defs/state"
+          "items": { "$ref": "#/$defs/state" }
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "queries": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/apiCall" }
+            },
+            "mutations": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/apiCall" }
+            }
           }
         },
-        "dataSources": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/dataSource"
-          }
+        "events": {
+          "type": "object",
+          "description": "L2.transition.id をキーにしたイベント定義",
+          "additionalProperties": { "$ref": "#/$defs/event" }
         },
         "conditions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/condition"
-          }
+          "type": "object",
+          "additionalProperties": { "type": "string" }
         }
       }
     }
@@ -44,65 +51,36 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^state_[a-z][a-z0-9_]*$"
-        },
-        "name": {
-          "type": "string",
-          "description": "Japanese display name"
-        },
-        "initial": {
-          "type": "boolean",
-          "default": false,
-          "description": "Initial state"
+        "id": { "type": "string", "pattern": "^state_[a-z][a-z0-9_]*$" },
+        "name": { "type": "string" },
+        "initial": { "type": "boolean", "default": false }
+      }
+    },
+    "apiCall": {
+      "type": "object",
+      "required": ["operationId"],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 },
+        "selectRoot": { "type": "string", "default": "$.data" },
+        "params": { "type": "object", "additionalProperties": true },
+        "select": { "type": "object", "additionalProperties": true },
+        "invalidate": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },
-    "dataSource": {
+    "event": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": ["type"],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^data_[a-z][a-z0-9_]*$"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["api", "localStorage", "static"]
-        },
-        "endpoint": {
-          "type": "string",
-          "description": "API endpoint (for type=api)"
-        },
-        "method": {
-          "type": "string",
-          "enum": ["GET", "POST", "PUT", "DELETE"],
-          "default": "GET"
-        },
-        "key": {
-          "type": "string",
-          "description": "Storage key (for type=localStorage)"
-        },
-        "value": {
-          "description": "Static value (for type=static)"
-        }
-      }
-    },
-    "condition": {
-      "type": "object",
-      "required": ["id", "expression"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^cond_[a-z][a-z0-9_]*$"
-        },
-        "expression": {
-          "type": "string",
-          "description": "Boolean expression"
-        }
+        "type": { "type": "string", "enum": ["refetch", "navigate", "setState"] },
+        "target": { "type": "string" },
+        "targetScreenId": { "type": "string" },
+        "params": { "type": "object", "additionalProperties": true },
+        "patch": { "type": "object", "additionalProperties": true }
       }
     }
   }
