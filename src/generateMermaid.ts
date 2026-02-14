@@ -3,18 +3,23 @@
  * Generates Mermaid flowchart from L2 screenflows
  */
 
-import fs from 'fs';
-import path from 'path';
-import { validate, type Screen, type Transition, type ValidateOptions } from './validate.js';
+import fs from "fs";
+import path from "path";
+import {
+  validate,
+  type Screen,
+  type Transition,
+  type ValidateOptions,
+} from "./validate.js";
 
 /* ================================
  * Helpers
  * ================================ */
 
 function removeTypePrefix(id: string): string {
-  const words = id.split('_');
+  const words = id.split("_");
   // タイププレフィックス除去（先頭の1要素）
-  return words.length > 1 ? words.slice(1).join('_') : id;
+  return words.length > 1 ? words.slice(1).join("_") : id;
 }
 
 function displayId(id: string, context?: string): string {
@@ -23,7 +28,7 @@ function displayId(id: string, context?: string): string {
 }
 
 function mermaidId(raw: string): string {
-  return raw.replace(/[^a-zA-Z0-9_]/g, '_');
+  return raw.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
 /* ================================
@@ -40,8 +45,8 @@ type GroupHierarchy = {
 
 function buildGroupHierarchy(screens: Map<string, Screen>): GroupHierarchy {
   const root: GroupHierarchy = {
-    name: '',
-    fullPath: '',
+    name: "",
+    fullPath: "",
     screens: [],
     children: new Map(),
   };
@@ -54,13 +59,13 @@ function buildGroupHierarchy(screens: Map<string, Screen>): GroupHierarchy {
     }
 
     // グループパスを分割（例: 'Venue/Nearby' → ['Venue', 'Nearby']）
-    const parts = screen.group.split('/');
+    const parts = screen.group.split("/");
     let current = root;
 
     // 階層を辿りながらノードを作成
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
-      const fullPath = parts.slice(0, i + 1).join('/');
+      const fullPath = parts.slice(0, i + 1).join("/");
 
       if (!current.children.has(part)) {
         current.children.set(part, {
@@ -83,7 +88,7 @@ function buildGroupHierarchy(screens: Map<string, Screen>): GroupHierarchy {
 function renderGroupHierarchy(
   node: GroupHierarchy,
   indent: string,
-  groupOrderMap: Map<string, number>
+  groupOrderMap: Map<string, number>,
 ): string[] {
   const lines: string[] = [];
 
@@ -93,12 +98,12 @@ function renderGroupHierarchy(
       const orderA = groupOrderMap.get(a.fullPath) ?? 99;
       const orderB = groupOrderMap.get(b.fullPath) ?? 99;
       return orderA - orderB;
-    }
+    },
   );
 
   // スクリーンをソート
   const sortedScreens = [...node.screens].sort(
-    (a, b) => (a.screen.order ?? 0) - (b.screen.order ?? 0)
+    (a, b) => (a.screen.order ?? 0) - (b.screen.order ?? 0),
   );
 
   // スクリーンをレンダリング
@@ -111,7 +116,7 @@ function renderGroupHierarchy(
   // 子グループをレンダリング（入れ子のサブグラフ）
   for (const [childName, child] of sortedChildren) {
     lines.push(`${indent}subgraph ${childName}`);
-    lines.push(...renderGroupHierarchy(child, indent + '  ', groupOrderMap));
+    lines.push(...renderGroupHierarchy(child, indent + "  ", groupOrderMap));
     lines.push(`${indent}end`);
   }
 
@@ -121,13 +126,13 @@ function renderGroupHierarchy(
 function generateMermaidContent(
   screens: Map<string, Screen>,
   transitions: Transition[],
-  groupOrder: string[]
+  groupOrder: string[],
 ): string {
   const lines: string[] = [];
 
-  lines.push('```mermaid');
-  lines.push('flowchart LR');
-  lines.push('');
+  lines.push("```mermaid");
+  lines.push("flowchart LR");
+  lines.push("");
 
   /* ---- Entry / Exit styles ---- */
   const entryIds: string[] = [];
@@ -140,10 +145,10 @@ function generateMermaidContent(
   }
 
   if (entryIds.length || exitIds.length) {
-    lines.push('%% --- Entry / Exit styles ---');
-    lines.push('classDef entry stroke:#2196f3,stroke-width:2px;');
-    lines.push('classDef exit stroke:#c62828,stroke-width:2px;');
-    lines.push('');
+    lines.push("%% --- Entry / Exit styles ---");
+    lines.push("classDef entry stroke:#2196f3,stroke-width:2px;");
+    lines.push("classDef exit stroke:#c62828,stroke-width:2px;");
+    lines.push("");
   }
 
   /* ---- build group hierarchy ---- */
@@ -156,8 +161,8 @@ function generateMermaidContent(
   });
 
   /* ---- render hierarchy ---- */
-  lines.push(...renderGroupHierarchy(hierarchy, '', groupOrderMap));
-  lines.push('');
+  lines.push(...renderGroupHierarchy(hierarchy, "", groupOrderMap));
+  lines.push("");
 
   /* ---- edges (self-loop emphasized) ---- */
   for (const t of transitions) {
@@ -165,26 +170,26 @@ function generateMermaidContent(
 
     const fromId = mermaidId(t.fromKey);
     const toId = mermaidId(t.toKey);
-    const arrow = t.self ? '-.->' : '-->';
-    const cleanLabel = t.label ? removeTypePrefix(t.label) : '';
+    const arrow = t.self ? "-.->" : "-->";
+    const cleanLabel = t.label ? removeTypePrefix(t.label) : "";
 
     lines.push(`  ${fromId} ${arrow}|${cleanLabel}| ${toId}`);
   }
 
   /* ---- apply classes ---- */
   if (entryIds.length) {
-    lines.push('');
+    lines.push("");
     for (const id of entryIds.sort()) lines.push(`class ${id} entry;`);
   }
   if (exitIds.length) {
-    lines.push('');
+    lines.push("");
     for (const id of exitIds.sort()) lines.push(`class ${id} exit;`);
   }
 
-  lines.push('```');
-  lines.push('');
+  lines.push("```");
+  lines.push("");
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /* ================================
@@ -192,20 +197,22 @@ function generateMermaidContent(
  * ================================ */
 
 export async function generateMermaid(options: ValidateOptions): Promise<void> {
-  const outputFile = path.join(options.specsDir, 'flows.md');
-  
+  const outputFile = path.join(options.specsDir, "flows.md");
+
   // バリデーション実行
   const result = validate(options);
 
   // エラーがあれば終了
   if (result.errors.length > 0) {
-    console.error('\n🔴 バリデーションエラーがあるため、Mermaid図生成を中断します');
+    console.error(
+      "\n🔴 バリデーションエラーがあるため、Mermaid図生成を中断します",
+    );
     process.exit(1);
   }
 
   // 警告表示
   if (result.warnings.length > 0) {
-    console.warn('\n⚠️  バリデーション警告:');
+    console.warn("\n⚠️  バリデーション警告:");
     for (const warn of result.warnings) {
       console.warn(`  ${warn}`);
     }
@@ -215,10 +222,10 @@ export async function generateMermaid(options: ValidateOptions): Promise<void> {
   const mermaidContent = generateMermaidContent(
     result.screens,
     result.transitions,
-    result.config.mermaid.groupOrder
+    result.config.mermaid.groupOrder,
   );
 
-  fs.writeFileSync(outputFile, mermaidContent, 'utf-8');
+  fs.writeFileSync(outputFile, mermaidContent, "utf-8");
   console.log(`\n✅ Mermaid 図を生成しました: ${path.resolve(outputFile)}`);
   console.log(`   screens: ${result.screens.size}`);
   console.log(`   transitions: ${result.transitions.length}`);

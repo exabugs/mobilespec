@@ -3,7 +3,7 @@ name: Publish to npm
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   publish:
@@ -13,7 +13,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -27,16 +27,16 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/v}
           echo "version=$TAG" >> $GITHUB_OUTPUT
           echo "Publishing version: $TAG"
-      
+
       - name: Update package.json version
         run: |
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build
         run: npm run build
-      
+
       - name: Publish to npm
         run: npm publish --provenance --access public

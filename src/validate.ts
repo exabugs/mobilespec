@@ -86,16 +86,20 @@ function loadYamlFiles(dir: string, extension: string): YamlFile[] {
         traverse(fullPath, newRelativePath);
       } else if (entry.isFile() && entry.name.endsWith(extension)) {
         const data = yaml.load(fs.readFileSync(fullPath, 'utf-8'));
-        
+
         // ディレクトリ構造からグループを決定
         // screenflows/ 直下のファイル → グループなし ('')
         // screenflows/home/xxx.yaml → 'Home'
         // screenflows/venue/nearby/xxx.yaml → 'Venue/Nearby'
         const dirPath = path.dirname(newRelativePath);
-        const group = dirPath === '.' ? '' : dirPath.split(path.sep)
-          .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-          .join('/');
-        
+        const group =
+          dirPath === '.'
+            ? ''
+            : dirPath
+                .split(path.sep)
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join('/');
+
         results.push({ path: fullPath, data, group });
       }
     }
@@ -141,7 +145,7 @@ function validateSchema(files: YamlFile[], schemaPath: string, label: string): s
 
 function loadConfig(specsDir: string): MobileSpecConfig {
   const configPath = path.join(specsDir, 'mobilespec.config.yml');
-  
+
   // デフォルト設定
   const defaultConfig: MobileSpecConfig = {
     mermaid: {
@@ -162,7 +166,7 @@ function loadConfig(specsDir: string): MobileSpecConfig {
         screenOrder: configData.mermaid?.screenOrder || defaultConfig.mermaid.screenOrder,
       },
     };
-  } catch (error) {
+  } catch {
     console.warn(`⚠️  設定ファイルの読み込みに失敗しました: ${configPath}`);
     return defaultConfig;
   }
@@ -174,7 +178,7 @@ function loadConfig(specsDir: string): MobileSpecConfig {
 
 function collectScreensAndTransitions(
   files: YamlFile[],
-  config: MobileSpecConfig
+  config: MobileSpecConfig,
 ): {
   screens: Map<string, Screen>;
   transitions: Transition[];
@@ -217,9 +221,7 @@ function collectScreensAndTransitions(
 
     const key = screenKey(s.id, s.context);
     if (screens.has(key)) {
-      errors.push(
-        `❌ Duplicate screen key: ${key} (id=${s.id}, context=${s.context ?? 'none'})`
-      );
+      errors.push(`❌ Duplicate screen key: ${key} (id=${s.id}, context=${s.context ?? 'none'})`);
       continue;
     }
 
@@ -247,9 +249,7 @@ function collectScreensAndTransitions(
 
       const candidates = variantsById.get(targetId) ?? [];
       if (candidates.length === 0) {
-        errors.push(
-          `❌ 遷移先が存在しません: ${fromKey} -> ${targetId} (transition: ${t.id})`
-        );
+        errors.push(`❌ 遷移先が存在しません: ${fromKey} -> ${targetId} (transition: ${t.id})`);
         continue;
       }
 
@@ -259,7 +259,7 @@ function collectScreensAndTransitions(
         const hit = candidates.find((s) => s.context === targetContext);
         if (!hit) {
           errors.push(
-            `❌ targetContext not found: ${targetId}[${targetContext}] (from ${fromKey}, transition ${t.id})`
+            `❌ targetContext not found: ${targetId}[${targetContext}] (from ${fromKey}, transition ${t.id})`,
           );
           continue;
         }
@@ -271,7 +271,7 @@ function collectScreensAndTransitions(
         const opts = candidates.map((s) => displayId(s.id, s.context)).join(', ');
         errors.push(
           `❌ Ambiguous target: ${targetId} has multiple contexts (${opts}). ` +
-            `Please set transition.targetContext (from ${fromKey}, transition ${t.id}).`
+            `Please set transition.targetContext (from ${fromKey}, transition ${t.id}).`,
         );
         continue;
       }
@@ -292,10 +292,7 @@ function collectScreensAndTransitions(
  * Validate Transitions
  * ================================ */
 
-function validateTransitions(
-  screens: Map<string, Screen>,
-  transitions: Transition[]
-): string[] {
+function validateTransitions(screens: Map<string, Screen>, transitions: Transition[]): string[] {
   const warnings: string[] = [];
   const screensWithIncoming = new Set<string>();
   const screensWithOutgoing = new Set<string>();
@@ -309,18 +306,14 @@ function validateTransitions(
   // 遷移元がない画面（entry以外）
   for (const [key, screen] of screens.entries()) {
     if (!screen.entry && !screensWithIncoming.has(key)) {
-      warnings.push(
-        `⚠️  遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`
-      );
+      warnings.push(`⚠️  遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`);
     }
   }
 
   // 遷移先がない画面（exit以外）
   for (const [key, screen] of screens.entries()) {
     if (!screen.exit && !screensWithOutgoing.has(key)) {
-      warnings.push(
-        `⚠️  遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`
-      );
+      warnings.push(`⚠️  遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`);
     }
   }
 
@@ -380,10 +373,7 @@ function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
  * Validate L3-L2 Cross
  * ================================ */
 
-function validateL3L2Cross(
-  uiActions: UIAction[],
-  transitions: Transition[]
-): string[] {
+function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): string[] {
   const errors: string[] = [];
 
   // L2の遷移IDセットを作成
@@ -403,7 +393,7 @@ function validateL3L2Cross(
 
       errors.push(
         `❌ L3-L2不整合: action="${uiAction.action}" に対応する L2 の遷移ID が存在しません ` +
-          `(screen: ${screenKey}, component: ${uiAction.componentId})`
+          `(screen: ${screenKey}, component: ${uiAction.componentId})`,
       );
     }
   }
@@ -441,7 +431,11 @@ export function validate(options: ValidateOptions): ValidationResult {
   const l4SchemaErrors = validateSchema(stateFiles, L4_SCHEMA_PATH, 'L4');
 
   // L2バリデーション
-  const { screens, transitions, errors: l2Errors } = collectScreensAndTransitions(flowFiles, config);
+  const {
+    screens,
+    transitions,
+    errors: l2Errors,
+  } = collectScreensAndTransitions(flowFiles, config);
   const warnings = validateTransitions(screens, transitions);
 
   // L3バリデーション
@@ -460,7 +454,14 @@ export function validate(options: ValidateOptions): ValidationResult {
     transitions,
     uiActions,
     stateScreens,
-    errors: [...l2SchemaErrors, ...l3SchemaErrors, ...l4SchemaErrors, ...l2Errors, ...crossErrors, ...l4Errors],
+    errors: [
+      ...l2SchemaErrors,
+      ...l3SchemaErrors,
+      ...l4SchemaErrors,
+      ...l2Errors,
+      ...crossErrors,
+      ...l4Errors,
+    ],
     warnings,
   };
 }
@@ -487,10 +488,7 @@ function collectStateScreens(stateFiles: YamlFile[]): Set<string> {
  * L4-L2 Cross Validation
  * ================================ */
 
-function validateL4L2Cross(
-  stateScreens: Set<string>,
-  l2Screens: Map<string, Screen>
-): string[] {
+function validateL4L2Cross(stateScreens: Set<string>, l2Screens: Map<string, Screen>): string[] {
   const errors: string[] = [];
 
   // L4の画面IDがL2に存在するか確認
@@ -504,11 +502,10 @@ function validateL4L2Cross(
     }
     if (!found) {
       errors.push(
-        `❌ L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`
+        `❌ L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`,
       );
     }
   }
 
   return errors;
 }
-

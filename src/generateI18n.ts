@@ -3,20 +3,20 @@
  * Generates i18n JSON files from L2 screenflows and L3 UI specifications
  */
 
-import fs from 'fs';
-import yaml from 'js-yaml';
-import path from 'path';
-import { type ValidateOptions } from './validate.js';
+import fs from "fs";
+import yaml from "js-yaml";
+import path from "path";
+import { type ValidateOptions } from "./validate.js";
 
 // --- 重要名詞（末尾移動対象） ---
-const IMPORTANT_NOUNS = ['venue', 'venues', 'task', 'tasks', 'stamp', 'event'];
+const IMPORTANT_NOUNS = ["venue", "venues", "task", "tasks", "stamp", "event"];
 
 /* ================================
  * ユーティリティ
  * ================================ */
 
 function idToEnglishLabel(id: string): string {
-  let words = id.split('_');
+  let words = id.split("_");
 
   // タイププレフィックス除去（先頭の1要素）
   if (words.length > 1) {
@@ -32,16 +32,20 @@ function idToEnglishLabel(id: string): string {
     }
   }
 
-  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 /* ================================
  * 再帰的に YAML ファイルを収集
  * ================================ */
 
-function findYamlFiles(dir: string, pattern: string, results: string[] = []): string[] {
+function findYamlFiles(
+  dir: string,
+  pattern: string,
+  results: string[] = [],
+): string[] {
   if (!fs.existsSync(dir)) return results;
-  
+
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -58,7 +62,7 @@ function findYamlFiles(dir: string, pattern: string, results: string[] = []): st
  * ================================ */
 
 function collectLabelsFromFlow(filePath: string) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = fs.readFileSync(filePath, "utf-8");
   const doc = yaml.load(content) as any;
 
   const labels: { id: string; ja: string; en: string }[] = [];
@@ -86,7 +90,7 @@ function collectLabelsFromFlow(filePath: string) {
  * ================================ */
 
 function collectLabelsFromUI(filePath: string) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = fs.readFileSync(filePath, "utf-8");
   const doc = yaml.load(content) as any;
 
   const labels: { id: string; ja: string; en: string }[] = [];
@@ -112,7 +116,11 @@ function collectLabelsFromUI(filePath: string) {
     }
 
     // layout.children を再帰
-    if (node.layout && node.layout.children && Array.isArray(node.layout.children)) {
+    if (
+      node.layout &&
+      node.layout.children &&
+      Array.isArray(node.layout.children)
+    ) {
       for (const child of node.layout.children) {
         traverse(child);
       }
@@ -129,16 +137,16 @@ function collectLabelsFromUI(filePath: string) {
  * ================================ */
 
 export async function generateI18n(options: ValidateOptions): Promise<void> {
-  const FLOW_DIR = path.join(options.specsDir, 'screenflows');
-  const UI_DIR = path.join(options.specsDir, 'ui');
-  const OUTPUT_JA = path.join(options.specsDir, 'i18n', 'ja.json');
-  const OUTPUT_EN = path.join(options.specsDir, 'i18n', 'en.json');
+  const FLOW_DIR = path.join(options.specsDir, "screenflows");
+  const UI_DIR = path.join(options.specsDir, "ui");
+  const OUTPUT_JA = path.join(options.specsDir, "i18n", "ja.json");
+  const OUTPUT_EN = path.join(options.specsDir, "i18n", "en.json");
 
-  const flowFiles = findYamlFiles(FLOW_DIR, '.flow.yaml');
-  const uiFiles = findYamlFiles(UI_DIR, '.ui.yaml');
+  const flowFiles = findYamlFiles(FLOW_DIR, ".flow.yaml");
+  const uiFiles = findYamlFiles(UI_DIR, ".ui.yaml");
 
   if (flowFiles.length === 0 && uiFiles.length === 0) {
-    console.warn('⚠️ YAML ファイルが見つかりません');
+    console.warn("⚠️ YAML ファイルが見つかりません");
     return;
   }
 
@@ -167,12 +175,12 @@ export async function generateI18n(options: ValidateOptions): Promise<void> {
   const jaSorted = Object.fromEntries(
     Object.keys(jaJson)
       .sort()
-      .map((k) => [k, jaJson[k]])
+      .map((k) => [k, jaJson[k]]),
   );
   const enSorted = Object.fromEntries(
     Object.keys(enJson)
       .sort()
-      .map((k) => [k, enJson[k]])
+      .map((k) => [k, enJson[k]]),
   );
 
   // 出力ディレクトリ作成
@@ -181,10 +189,10 @@ export async function generateI18n(options: ValidateOptions): Promise<void> {
     fs.mkdirSync(i18nDir, { recursive: true });
   }
 
-  fs.writeFileSync(OUTPUT_JA, JSON.stringify(jaSorted, null, 2), 'utf-8');
-  fs.writeFileSync(OUTPUT_EN, JSON.stringify(enSorted, null, 2), 'utf-8');
+  fs.writeFileSync(OUTPUT_JA, JSON.stringify(jaSorted, null, 2), "utf-8");
+  fs.writeFileSync(OUTPUT_EN, JSON.stringify(enSorted, null, 2), "utf-8");
 
-  console.log('✅ i18n JSON を自動生成しました（ja.json / en.json）');
+  console.log("✅ i18n JSON を自動生成しました（ja.json / en.json）");
   console.log(`   L2 flows: ${flowFiles.length} files`);
   console.log(`   L3 ui: ${uiFiles.length} files`);
   console.log(`   total keys: ${Object.keys(jaSorted).length}`);
