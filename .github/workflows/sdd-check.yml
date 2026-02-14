@@ -1,0 +1,60 @@
+name: sdd-check
+on:
+  workflow_call:
+    inputs:
+      specs_dir:
+        type: string
+        required: true
+      schema_dir:
+        type: string
+        required: false
+        default: schema
+      openapi_path:
+        type: string
+        required: false
+        default: ''
+      fail_on_warnings:
+        type: boolean
+        required: false
+        default: true
+      upload_artifacts:
+        type: boolean
+        required: false
+        default: true
+      artifact_name:
+        type: string
+        required: false
+        default: sdd-generated
+      include_hidden_files:
+        type: boolean
+        required: false
+        default: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node dist/bin/cli.js validate --specs-dir "${{ inputs.specs_dir }}" --schema-dir "${{ inputs.schema_dir }}"
+      - run: node dist/bin/cli.js mermaid  --specs-dir "${{ inputs.specs_dir }}"
+      - run: node dist/bin/cli.js i18n     --specs-dir "${{ inputs.specs_dir }}"
+
+      # openapi_path が指定された時だけ operationId 検証（将来/実装後）
+      - if: ${{ inputs.openapi_path != '' }}
+        run: node dist/bin/cli.js openapi-check --specs-dir "${{ inputs.specs_dir }}" --openapi "${{ inputs.openapi_path }}"
+
+      - if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            ${{ inputs.specs_dir }}/**/*.md
+            ${{ inputs.specs_dir }}/**/i18n/**/*
+          include-hidden-files: ${{ inputs.include_hidden_files }}
