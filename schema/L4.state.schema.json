@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:mobilespec:L4.state",
-  "title": "State & Data Contract Schema (L4)",
+  "title": "State Schema (L4)",
   "type": "object",
   "required": ["screen"],
   "additionalProperties": false,
+
   "properties": {
     "screen": {
       "type": "object",
@@ -13,67 +14,121 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^screen_[a-z][a-z0-9_]*$"
+          "pattern": "^[a-z][a-z0-9_]*$"
         },
+
         "states": {
           "type": "array",
+          "minItems": 0,
           "items": { "$ref": "#/$defs/state" }
         },
-        "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "queries": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/apiCall" }
-            },
-            "mutations": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/apiCall" }
-            }
-          }
-        },
-        "events": {
-          "type": "object",
-          "description": "キーは L2.transition.id と一致させる",
-          "additionalProperties": { "$ref": "#/$defs/event" }
-        },
+
+        "data": { "$ref": "#/$defs/data" },
+
         "conditions": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+
+        "events": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/event" }
         }
       }
     }
   },
+
   "$defs": {
     "state": {
       "type": "object",
-      "required": ["id"],
+      "required": ["id", "name"],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^state_[a-z][a-z0-9_]*$" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
         "name": { "type": "string" },
-        "initial": { "type": "boolean", "default": false }
+        "initial": { "type": "boolean" }
       }
     },
-    "apiCall": {
+
+    "data": {
       "type": "object",
-      "required": ["operationId"],
       "additionalProperties": false,
       "properties": {
-        "operationId": { "type": "string", "minLength": 1 }
+        "queries": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/opRef" }
+        },
+        "mutations": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/opRef" }
+        }
       }
     },
+
+    "opRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 },
+        "selectRoot": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原則は混在禁止。必要になるならSDDルールで明示的に導入する。"
+        }
+      }
+    },
+
     "event": {
+      "oneOf": [
+        { "$ref": "#/$defs/navigateEvent" },
+        { "$ref": "#/$defs/callQueryEvent" },
+        { "$ref": "#/$defs/callMutationEvent" }
+      ]
+    },
+
+    "navigateEvent": {
       "type": "object",
-      "required": ["type"],
+      "required": ["type", "targetScreenId"],
       "additionalProperties": false,
       "properties": {
-        "type": { "type": "string", "enum": ["refetch", "navigate", "setState"] },
-        "target": { "type": "string" },
-        "targetScreenId": { "type": "string" },
-        "params": { "type": "object", "additionalProperties": true },
-        "patch": { "type": "object", "additionalProperties": true }
+        "type": { "const": "navigate" },
+        "targetScreenId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      }
+    },
+
+    "callQueryEvent": {
+      "type": "object",
+      "required": ["type", "query"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "callQuery" },
+        "query": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "screen.data.queries のキー"
+        }
+      }
+    },
+
+    "callMutationEvent": {
+      "type": "object",
+      "required": ["type", "mutation"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "callMutation" },
+        "mutation": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "screen.data.mutations のキー"
+        }
       }
     }
   }
