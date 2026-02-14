@@ -61,11 +61,7 @@
       "required": ["operationId"],
       "additionalProperties": false,
       "properties": {
-        "operationId": { "type": "string", "minLength": 1 },
-        "selectRoot": { "type": "string", "default": "$.data" },
-        "params": { "type": "object", "additionalProperties": true },
-        "select": { "type": "object", "additionalProperties": true },
-        "invalidate": { "type": "array", "items": { "type": "string" } }
+        "operationId": { "type": "string", "minLength": 1 }
       }
     },
     "event": {
