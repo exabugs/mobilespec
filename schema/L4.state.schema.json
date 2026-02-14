@@ -12,10 +12,7 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
 
         "states": {
           "type": "array",
@@ -27,9 +24,7 @@
 
         "conditions": {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": { "type": "string" }
         },
 
         "events": {
@@ -46,10 +41,7 @@
       "required": ["id", "name"],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "name": { "type": "string" },
         "initial": { "type": "boolean" }
       }
@@ -75,11 +67,7 @@
       "additionalProperties": false,
       "properties": {
         "operationId": { "type": "string", "minLength": 1 },
-        "selectRoot": {
-          "type": "string",
-          "minLength": 1,
-          "description": "原則は混在禁止。必要になるならSDDルールで明示的に導入する。"
-        }
+        "selectRoot": { "type": "string", "minLength": 1 }
       }
     },
 
@@ -97,17 +85,14 @@
       "additionalProperties": false,
       "properties": {
         "type": { "const": "navigate" },
-        "targetScreenId": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        }
+        "targetScreenId": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
       }
     },
 
     "callQueryEvent": {
       "type": "object",
       "required": ["type", "query"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "type": { "const": "callQuery" },
         "query": {
@@ -121,7 +106,7 @@
     "callMutationEvent": {
       "type": "object",
       "required": ["type", "mutation"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "type": { "const": "callMutation" },
         "mutation": {
