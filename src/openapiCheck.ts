@@ -1,5 +1,3 @@
-// src/openapiCheck.ts
-
 export type OpenapiCheckOptions = {
   specsDir: string;
   schemaDir: string;
@@ -11,19 +9,7 @@ export type OpenapiCheckResult = {
   warnings: string[];
 };
 
-/**
- * OpenAPI と L4 の operationId 整合性チェック
- *
- * 現段階ではスケルトン。
- * 将来ここで：
- *  - OpenAPI を読み込み
- *  - operationId 一覧を抽出
- *  - L4 から参照されている operationId と照合
- */
-export async function openapiCheck(_options: OpenapiCheckOptions): Promise<OpenapiCheckResult> {
-  // TODO: 実装予定
-  return {
-    errors: [],
-    warnings: [],
-  };
+export async function openapiCheck(_opts: OpenapiCheckOptions): Promise<OpenapiCheckResult> {
+  // TODO: OpenAPI YAML を読み、operationId一覧を抽出し、L4の参照と突合する
+  return { errors: [], warnings: [] };
 }
