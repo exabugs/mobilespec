@@ -1,42 +1,48 @@
 # mobilespec
 
-## Structure-Driven Development (SDD) 公式仕様エンジン
+## Structure-Driven Development (SDD) 仕様エンジン
 
-mobilespec は **Structure-Driven Development（SDD／構造駆動開発）** を実践するための仕様管理エンジンです。
+**mobilespec** は
+**Structure-Driven Development（SDD／構造駆動開発）** を実践するための
+UI構造仕様管理・検証・生成エンジンです。
 
-SDD では、
+---
+
+# 🎯 SDD とは
+
+SDD は、
 
 - API構造（OpenAPI）
 - 画面遷移構造（L2）
-- 画面構成構造（L3）
+- UI構成構造（L3）
 - 状態・データ契約構造（L4）
 
 を **唯一の正（SSOT）** とし、
 
-実装コードは生成物として扱います。
+実装コードを生成物として扱う開発手法です。
 
 ---
 
-## 🎯 SDD の原則
+# 🧠 SDD の原則
 
-1. **構造が正、実装は生成物**
-2. API 契約は OpenAPI が唯一の正
-3. UI 契約は L2/L3/L4 が唯一の正
-4. BFF レスポンス型は統一（例：`ApiResponse<T>`）
-5. L4 は `operationId` のみ参照（URL/HTTP直書き禁止）
-6. i18n はキー参照のみ（文言は辞書へ）
-7. 契約違反は CI で失敗（AI 不要）
+1. 構造が正、実装は生成物
+2. OpenAPI は API 契約の唯一の正
+3. L2/L3/L4 は UI 契約の唯一の正
+4. BFF API レスポンスは統一型（例：`ApiResponse<T>`）
+5. L4 は `operationId` のみ参照（URL直書き禁止）
+6. i18n はキー参照のみ
+7. 契約違反は CI で検知（AI不要）
 
 ---
 
-## 📐 SDD アーキテクチャ
+# 📐 SDD アーキテクチャ
 
 ```
-OpenAPI  ← API契約
+OpenAPI
    ↑
-L4 (State/Data契約)
+L4 (State / Data契約)
    ↑
-L3 (UI構成)
+L3 (UI構造)
    ↑
 L2 (画面遷移)
 ```
@@ -45,7 +51,7 @@ mobilespec は L2/L3/L4 を管理します。
 
 ---
 
-## 📂 ディレクトリ構造（推奨）
+# 📂 推奨ディレクトリ構造
 
 ```
 specs/
@@ -60,160 +66,131 @@ specs/
     en.yaml
 ```
 
-原則：**1 screen = 1 file**
+原則：
+
+> 1 screen = 1 file
 
 ---
 
-## L2: 画面遷移構造
+# 🔧 CLI
 
-目的：アプリの遷移グラフを定義
+## validate
 
-- screen id
-- transition id
-- entry/exit
+```bash
+node dist/bin/cli.js validate --specs-dir ./specs
+```
 
-Mermaid 図を自動生成可能。
+## mermaid
 
----
+```bash
+node dist/bin/cli.js mermaid --specs-dir ./specs
+```
 
-## L3: UI構成構造
+## i18n
 
-目的：画面の構造（Widget tree / Component tree）
+```bash
+node dist/bin/cli.js i18n --specs-dir ./specs
+```
 
-- 要素定義
-- action → L2 transition id 参照
+## check（CI向け推奨）
 
----
+```bash
+node dist/bin/cli.js check --specs-dir ./specs
+```
 
-## L4: 状態・データ契約構造
+## openapi-check（将来のoperationId整合性）
 
-目的：画面の状態と API 接続を宣言的に定義
-
-### 特徴
-
-- OpenAPI `operationId` のみ参照
-- レスポンス型は BFF で統一
-- HTTP情報は一切書かない
-
-例:
-
-```yaml
-data:
-  queries:
-    venues:
-      operationId: getVenues
-      selectRoot: $.data
+```bash
+node dist/bin/cli.js openapi-check \
+  --specs-dir ./specs \
+  --openapi ./openapi.yaml
 ```
 
 ---
 
-## 🔍 バリデーション
+# 🚀 GitHub Actions（Reusable Workflow）
 
-- JSON Schema 検証
+mobilespec は SDD チェック用の reusable workflow を提供します。
+
+## 呼び出し側（asanowa等）
+
+```yaml
+jobs:
+  sdd:
+    uses: exabugs/mobilespec/.github/workflows/sdd-check.yml@v0.1.0
+    with:
+      specs_dir: .kiro/specs/asanowa/mobile
+      openapi_path: openapi/bff.yaml
+      fail_on_warnings: true
+```
+
+## 入力パラメータ
+
+| Name             | Required | Default       | 説明                       |
+| ---------------- | -------- | ------------- | -------------------------- |
+| specs_dir        | ✓        | -             | L2/L3/L4 ルート            |
+| schema_dir       |          | schema        | JSON schema ディレクトリ   |
+| openapi_path     |          | ""            | OpenAPI パス               |
+| fail_on_warnings |          | true          | 警告で失敗する             |
+| upload_artifacts |          | true          | Mermaid/i18n を artifact化 |
+| artifact_name    |          | sdd-generated | artifact名                 |
+
+---
+
+# 🔍 CI で検知されるもの
+
+- L2 schema validation
+- L3 schema validation
+- L4 schema validation
 - L2-L3 整合性
 - L2-L4 整合性
-- i18n key 存在チェック
-- operationId 存在チェック（OpenAPI連携予定）
+- i18n key 整合性
+- （将来）operationId 整合性
 
 ---
 
-## 🔄 運用フロー（SDD）
+# 🧠 SDD のゴール
 
-### 変更時
-
-1. OpenAPI 更新（API変更時）
-2. L2/L3/L4 更新
-3. validate
-4. mermaid 生成
-5. 実装生成
-6. CIで検知
-
----
-
-## 🧠 SDD のゴール
-
-- Flutter → ReactNative へ移行可能
 - 実装を捨てられる
-- AI が構造だけを読めば実装可能
+- フレームワーク移行可能
+- AI が構造だけ読めば生成可能
 - トークン消費最小
 
 ---
 
-# 📌 追加で生成すべき重要ドキュメント
+# 📜 ドキュメント
 
-README だけでは弱いです。
-
-以下を追加すると SDD が完成します。
-
----
-
-## 1️⃣ docs/SDD_PRINCIPLES.md
-
-内容：
-
-- なぜ SDD か
-- なぜ OpenAPI だけでは不十分か
-- なぜ L2/L3/L4 を分離するか
-- AI 時代に必要な設計原則
+- docs/SDD_PRINCIPLES.md
+- docs/SDD_RULES.md
+- docs/SDD_CI_POLICY.md
+- docs/SDD_LIFECYCLE.md
 
 ---
 
-## 2️⃣ docs/SDD_RULES.md
+# 🔥 mobilespec の役割
 
-機械的ルール：
+mobilespec は：
 
-- 1 screen 1 file
-- 命名規則
-- operationId 命名規則
-- BFFレスポンス統一規約
-- i18n key 規約
+> SDD の公式仕様エンジン
 
----
+です。
 
-## 3️⃣ docs/SDD_CI_POLICY.md
-
-CI で落とすもの：
-
-- スキーマ違反
-- 遷移未定義
-- i18n key 不在
-- operationId 不在
-- 未使用 screen
+実装を正とせず、構造を正とする開発を実現します。
 
 ---
 
-## 4️⃣ docs/SDD_LIFECYCLE.md
+ここまでで、mobilespec は
 
-開発フロー：
+✔ ライブラリ
+→ ✔ SDD エンジン
 
-```
-構造変更
-↓
-validate
-↓
-生成
-↓
-実装
-↓
-CI
-```
+に進化しました。
 
 ---
 
-# 🚀 次にやるべきこと
+次は、
 
-一番重要なのは：
+- asanowa 側の README に SDD 導入宣言を書く
+- SDD versioning（v0.1 / v1.0 定義）を決める
 
-> SDD を asanowa のルートに明文化する
-
-mobilespec を「ライブラリ」から
-「SDD 公式エンジン」に格上げする。
-
----
-
-もしよければ次は：
-
-- SDD の正式マニフェスト（1ページ宣言）
-- asanowa 用の SDD 導入手順書
-
-どちらから作りますか？
+どちらを進めますか？
