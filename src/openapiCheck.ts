@@ -16,11 +16,42 @@ export type OpenapiCheckResult = {
   warnings: string[];
 };
 
-// --------------------
-// Zod schemas
-// --------------------
+// ------------------------------------
+// Zod schemas (v4)
+// ------------------------------------
 
-// OpenAPI: operationId だけ取りたい。その他は無視（passthrough）
+// OpenAPI: operationId だけ拾う。他は全部無視したいので "looseObject"
+const OpenApiOperationSchema = z.looseObject({
+  operationId: z.string().min(1).optional(),
+});
+
+// pathItem: { get: {operationId?}, post: {...}, ... }
+const OpenApiPathItemSchema = z.record(z.string(), OpenApiOperationSchema);
+
+// openapi doc: paths: Record<path, pathItem>
+const OpenApiSchema = z.looseObject({
+  openapi: z.string().optional(),
+  swagger: z.string().optional(),
+  paths: z.record(z.string(), OpenApiPathItemSchema).optional(),
+});
+
+// L4: 混在禁止 → selectRoot を書かせない（strictObject）
+const L4ApiCallSchema = z.strictObject({
+  operationId: z.string().min(1),
+});
+
+const L4DocSchema = z.looseObject({
+  screen: z.looseObject({
+    id: z.string().min(1),
+    data: z
+      .looseObject({
+        queries: z.record(z.string(), L4ApiCallSchema).optional(),
+        mutations: z.record(z.string(), L4ApiCallSchema).optional(),
+      })
+      .optional(),
+  }),
+});
+
 const HttpMethodSchema = z.enum([
   'get',
   'put',
@@ -32,66 +63,35 @@ const HttpMethodSchema = z.enum([
   'trace',
 ]);
 
-const OpenApiOperationSchema = z.looseObject({
-  operationId: z.string().min(1).optional(),
-});
-
-const OpenApiPathItemSchema = z.record(z.string(), OpenApiOperationSchema);
-
-const OpenApiSchema = z.looseObject({
-  openapi: z.string().optional(),
-  swagger: z.string().optional(),
-  paths: z.record(z.string(), OpenApiPathItemSchema).optional(),
-});
-
-// L4: 混在なし方針 → selectRoot は存在してはいけない（strict）
-const L4ApiCallSchema = z
-  .object({
-    operationId: z.string().min(1),
-  })
-  .strict();
-
-const L4DocSchema = z
-  .object({
-    screen: z.object({
-      id: z.string().min(1),
-      data: z
-        .object({
-          queries: z.record(z.string(), L4ApiCallSchema).optional(),
-          mutations: z.record(z.string(), L4ApiCallSchema).optional(),
-        })
-        .optional(),
-    }),
-  })
-  .passthrough();
-
 function readYamlUnknown(p: string): unknown {
   return yaml.load(fs.readFileSync(p, 'utf8'));
 }
 
-function formatZodIssues(prefix: string, issues: z.ZodIssue[]) {
-  const body = issues.map((i) => `${i.path.join('/')}: ${i.message}`).join(', ');
-  return `${prefix}: ${body}`;
+function zodIssuesToText(issues: z.ZodIssue[]) {
+  return issues.map((i) => `${i.path.join('/')}: ${i.message}`).join(', ');
 }
 
 type OpenApiDoc = z.infer<typeof OpenApiSchema>;
 type OpenApiPathItem = z.infer<typeof OpenApiPathItemSchema>;
 type OpenApiOperation = z.infer<typeof OpenApiOperationSchema>;
 
-function collectOperationIdsFromOpenApi(doc: OpenApiDoc) {
+function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
+  opIds: Set<string>;
+  duplicates: Map<string, string[]>;
+  missing: string[];
+} {
   const opIds = new Set<string>();
-  const missing: string[] = [];
   const occurrences = new Map<string, string[]>();
+  const missing: string[] = [];
 
   const paths = doc.paths ?? {};
-  for (const [p, pathItemAny] of Object.entries(paths)) {
-    const pathItem = pathItemAny as OpenApiPathItem; // <- ここで型固定
 
-    for (const [methodRaw, opAny] of Object.entries(pathItem)) {
+  // ここは parse済みの型なので unknown になりません
+  for (const [p, pathItem] of Object.entries(paths) as [string, OpenApiPathItem][]) {
+    for (const [methodRaw, op] of Object.entries(pathItem) as [string, OpenApiOperation][]) {
       const m = methodRaw.toLowerCase();
       if (!HttpMethodSchema.safeParse(m).success) continue;
 
-      const op = opAny as OpenApiOperation; // <- ここで型固定
       const label = `${m.toUpperCase()} ${p}`;
       const operationId = op.operationId;
 
@@ -124,7 +124,7 @@ function collectOperationIdRefsFromL4(specsDir: string): {
     file: string;
   }>;
   l4Files: string[];
-  parseErrors: string[];
+  errors: string[];
 } {
   const L4_DIR = path.join(specsDir, 'L4.state');
   const l4Files = fs.existsSync(L4_DIR)
@@ -138,14 +138,15 @@ function collectOperationIdRefsFromL4(specsDir: string): {
     operationId: string;
     file: string;
   }> = [];
-  const parseErrors: string[] = [];
+  const errors: string[] = [];
 
   for (const f of l4Files) {
     const raw = readYamlUnknown(f);
     const parsed = L4DocSchema.safeParse(raw);
+
     if (!parsed.success) {
-      parseErrors.push(
-        `🔴 L4 parse error: ${path.relative(specsDir, f)}: ${formatZodIssues('invalid', parsed.error.issues)}`,
+      errors.push(
+        `🔴 L4 invalid: ${path.relative(specsDir, f)}: ${zodIssuesToText(parsed.error.issues)}`,
       );
       continue;
     }
@@ -164,7 +165,7 @@ function collectOperationIdRefsFromL4(specsDir: string): {
     }
   }
 
-  return { refs, l4Files, parseErrors };
+  return { refs, l4Files, errors };
 }
 
 export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCheckResult> {
@@ -176,42 +177,38 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     return { errors, warnings };
   }
 
-  // OpenAPI parse
+  // ---- OpenAPI parse ----
   const openapiRaw = readYamlUnknown(opts.openapiPath);
   const openapiParsed = OpenApiSchema.safeParse(openapiRaw);
   if (!openapiParsed.success) {
-    errors.push(
-      `🔴 OpenAPI parse error: ${formatZodIssues('invalid', openapiParsed.error.issues)}`,
-    );
+    errors.push(`🔴 OpenAPI invalid: ${zodIssuesToText(openapiParsed.error.issues)}`);
     return { errors, warnings };
   }
 
   const { opIds, duplicates, missing } = collectOperationIdsFromOpenApi(openapiParsed.data);
 
-  // OpenAPI quality
+  // ---- OpenAPI quality ----
   if (missing.length) {
-    errors.push(`🔴 OpenAPI に operationId が無い operation が存在します: ${missing.join(', ')}`);
+    errors.push(`🔴 OpenAPI に operationId が無い operation: ${missing.join(', ')}`);
   }
 
   if (duplicates.size) {
     const lines = [...duplicates.entries()]
       .map(([id, where]) => `  - ${id}: ${where.join(', ')}`)
       .join('\n');
-    errors.push(
-      `🔴 OpenAPI operationId が重複しています（operationId は一意である必要）:\n${lines}`,
-    );
+    errors.push(`🔴 OpenAPI operationId が重複（operationId は一意が必須）:\n${lines}`);
   }
 
-  // L4 refs
-  const { refs, l4Files, parseErrors } = collectOperationIdRefsFromL4(opts.specsDir);
-  errors.push(...parseErrors);
+  // ---- L4 refs ----
+  const { refs, l4Files, errors: l4Errors } = collectOperationIdRefsFromL4(opts.specsDir);
+  errors.push(...l4Errors);
 
   if (l4Files.length === 0) {
     warnings.push('⚠️ L4.state が無いため、OpenAPI との突合をスキップしました');
     return { errors, warnings };
   }
 
-  // L4 -> OpenAPI
+  // ---- L4 -> OpenAPI ----
   for (const r of refs) {
     if (!opIds.has(r.operationId)) {
       errors.push(
@@ -223,13 +220,11 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     }
   }
 
-  // OpenAPI -> L4 (導入期は warning)
+  // ---- OpenAPI -> L4 ----
   const used = new Set(refs.map((r) => r.operationId));
   const unused = [...opIds].filter((id) => !used.has(id));
   if (unused.length) {
-    warnings.push(
-      `⚠️ OpenAPI の operationId が L4 から未参照です（導入途上ならOK）: ${unused.join(', ')}`,
-    );
+    warnings.push(`⚠️ OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`);
   }
 
   return { errors, warnings };
