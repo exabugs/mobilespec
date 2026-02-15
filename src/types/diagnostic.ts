@@ -71,4 +71,11 @@ export function warningsOf(r: DiagnosticResult): Diagnostic[] {
   return r.diagnostics.filter((d) => d.level === 'warning');
 }
 
+/**
+ * 診断結果から指定されたコードの診断を検索
+ */
+export function findByCode(r: DiagnosticResult, code: DiagnosticCode): Diagnostic | undefined {
+  return r.diagnostics.find((d) => d.code === code);
+}
+
 

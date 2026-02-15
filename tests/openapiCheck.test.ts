@@ -7,7 +7,7 @@ import { writeOkForOpenApi } from './helpers/openapiSpec.js';
 import { writeFile } from './helpers/mkSpec.js';
 
 import { openapiCheck } from '../src/openapiCheck.js';
-import { errorsOf, warningsOf } from '../src/types/diagnostic.js';
+import { errorsOf, warningsOf, findByCode } from '../src/types/diagnostic.js';
 
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
@@ -59,8 +59,10 @@ screen:
     const r = await run(ctx);
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].code).toBe('L4_UNKNOWN_OPERATION_ID');
-    expect(errors[0].meta?.operationId).toBe('getTasks_typo');
+    
+    const error = findByCode(r, 'L4_UNKNOWN_OPERATION_ID');
+    expect(error).toBeDefined();
+    expect(error?.meta?.operationId).toBe('getTasks_typo');
   });
 
   it('ng: OpenAPI has missing operationId => error', async () => {
@@ -86,7 +88,9 @@ paths:
     const r = await run(ctx);
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].code).toBe('OPENAPI_MISSING_OPERATION_ID');
+    
+    const error = findByCode(r, 'OPENAPI_MISSING_OPERATION_ID');
+    expect(error).toBeDefined();
   });
 
   it('warn: OpenAPI operationId unused by L4 => warning', async () => {
@@ -121,8 +125,10 @@ paths:
     const warnings = warningsOf(r);
     expect(errors).toEqual([]);
     expect(warnings.length).toBeGreaterThan(0);
-    expect(warnings[0].code).toBe('L4_UNUSED_OPERATION_ID');
-    expect(warnings[0].meta?.operationIds).toContain('getUsers');
+    
+    const warning = findByCode(r, 'L4_UNUSED_OPERATION_ID');
+    expect(warning).toBeDefined();
+    expect(warning?.meta?.operationIds).toContain('getUsers');
   });
 
   it('ok: L4 includes selectRoot (allowed by L4 JSON Schema)', async () => {

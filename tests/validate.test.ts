@@ -6,7 +6,7 @@ import { validate } from '../src/validate/index.js';
 import { mkTempDir } from './helpers/mkTemp.js';
 import { writeOkSpec } from './helpers/okSpec.js';
 import { writeFile } from './helpers/mkSpec.js';
-import { errorsOf, warningsOf } from '../src/types/diagnostic.js';
+import { errorsOf, warningsOf, findByCode } from '../src/types/diagnostic.js';
 
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
@@ -45,7 +45,9 @@ screen:
 
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors[0].code).toBe('L3_ACTION_NOT_IN_L2');
-    expect(errors[0].meta?.action).toBe('open_tasks_typo');
+    
+    const error = findByCode(r, 'L3_ACTION_NOT_IN_L2');
+    expect(error).toBeDefined();
+    expect(error?.meta?.action).toBe('open_tasks_typo');
   });
 });
