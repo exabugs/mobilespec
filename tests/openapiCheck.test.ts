@@ -36,8 +36,8 @@ describe('openapiCheck', () => {
     const ctx = setup();
     const r = await run(ctx);
 
-    expect(errorsOf(r.diagnostics)).toEqual([]);
-    expect(warningsOf(r.diagnostics)).toEqual([]);
+    expect(errorsOf(r)).toEqual([]);
+    expect(warningsOf(r)).toEqual([]);
   });
 
   it('ng: L4 references unknown operationId => error', async () => {
@@ -57,7 +57,7 @@ screen:
     );
 
     const r = await run(ctx);
-    const errors = errorsOf(r.diagnostics);
+    const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].code).toBe('L4_UNKNOWN_OPERATION_ID');
     expect(errors[0].meta?.operationId).toBe('getTasks_typo');
@@ -84,7 +84,7 @@ paths:
     );
 
     const r = await run(ctx);
-    const errors = errorsOf(r.diagnostics);
+    const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].code).toBe('OPENAPI_MISSING_OPERATION_ID');
   });
@@ -117,8 +117,8 @@ paths:
     );
 
     const r = await run(ctx);
-    const errors = errorsOf(r.diagnostics);
-    const warnings = warningsOf(r.diagnostics);
+    const errors = errorsOf(r);
+    const warnings = warningsOf(r);
     expect(errors).toEqual([]);
     expect(warnings.length).toBeGreaterThan(0);
     expect(warnings[0].code).toBe('L4_UNUSED_OPERATION_ID');
@@ -143,7 +143,7 @@ screen:
     );
 
     const r = await run(ctx);
-    expect(errorsOf(r.diagnostics)).toEqual([]);
-    expect(warningsOf(r.diagnostics)).toEqual([]);
+    expect(errorsOf(r)).toEqual([]);
+    expect(warningsOf(r)).toEqual([]);
   });
 });

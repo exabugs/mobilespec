@@ -51,17 +51,24 @@ export type Diagnostic = {
 };
 
 /**
+ * 診断結果を持つオブジェクト
+ */
+export type DiagnosticResult = {
+  diagnostics: Diagnostic[];
+};
+
+/**
  * 診断結果からエラーのみを抽出
  */
-export function errorsOf(diagnostics: Diagnostic[]): Diagnostic[] {
-  return diagnostics.filter((d) => d.level === 'error');
+export function errorsOf(r: DiagnosticResult): Diagnostic[] {
+  return r.diagnostics.filter((d) => d.level === 'error');
 }
 
 /**
  * 診断結果から警告のみを抽出
  */
-export function warningsOf(diagnostics: Diagnostic[]): Diagnostic[] {
-  return diagnostics.filter((d) => d.level === 'warning');
+export function warningsOf(r: DiagnosticResult): Diagnostic[] {
+  return r.diagnostics.filter((d) => d.level === 'warning');
 }
 
 

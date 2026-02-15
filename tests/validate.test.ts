@@ -17,8 +17,8 @@ describe('mobilespec validate (current behavior)', () => {
 
     const r = validate({ specsDir, schemaDir });
 
-    expect(errorsOf(r.diagnostics)).toEqual([]);
-    expect(warningsOf(r.diagnostics)).toEqual([]);
+    expect(errorsOf(r)).toEqual([]);
+    expect(warningsOf(r)).toEqual([]);
   });
 
   it('ng: L3 action typo => L3-L2 mismatch goes to errors', () => {
@@ -43,7 +43,7 @@ screen:
 
     const r = validate({ specsDir, schemaDir });
 
-    const errors = errorsOf(r.diagnostics);
+    const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].code).toBe('L3_ACTION_NOT_IN_L2');
     expect(errors[0].meta?.action).toBe('open_tasks_typo');
