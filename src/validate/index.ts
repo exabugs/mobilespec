@@ -47,7 +47,7 @@ export function validate(options: ValidateOptions): ValidationResult {
     transitions,
     errors: l2Errors,
   } = collectScreensAndTransitions(flowFiles, config);
-  const warnings = validateTransitions(screens, transitions);
+  const l2Warnings = validateTransitions(screens, transitions);
 
   // L3バリデーション
   const uiActions = collectUIActions(uiFiles);
@@ -61,7 +61,19 @@ export function validate(options: ValidateOptions): ValidationResult {
 
   // L4.events (callQuery/callMutation) の cross-layer（導入期は warning）
   const l4Details = collectL4Details(stateFiles);
-  warnings.push(...validateL4EventsCross(l4Details, transitions, screens));
+  const l4EventWarnings = validateL4EventsCross(l4Details, transitions, screens);
+
+  // 診断を統合
+  const diagnostics = [
+    ...l2SchemaErrors,
+    ...l3SchemaErrors,
+    ...l4SchemaErrors,
+    ...l2Errors,
+    ...crossErrors,
+    ...l4Errors,
+    ...l2Warnings,
+    ...l4EventWarnings,
+  ];
 
   return {
     screens,
@@ -69,14 +81,6 @@ export function validate(options: ValidateOptions): ValidationResult {
     transitions,
     uiActions,
     stateScreens,
-    errors: [
-      ...l2SchemaErrors,
-      ...l3SchemaErrors,
-      ...l4SchemaErrors,
-      ...l2Errors,
-      ...crossErrors,
-      ...l4Errors,
-    ],
-    warnings,
+    diagnostics,
   };
 }

@@ -62,16 +62,19 @@ function parse(): Args {
  * - otherwise => 0
  */
 function reportAndCode(
-  result: { errors: string[]; warnings: string[] },
+  result: { diagnostics: { level: 'error' | 'warning'; message: string }[] },
   failOnWarnings: boolean,
 ): number {
-  if (result.errors.length) {
-    for (const e of result.errors) console.error(e);
+  const errors = result.diagnostics.filter((d) => d.level === 'error');
+  const warnings = result.diagnostics.filter((d) => d.level === 'warning');
+
+  if (errors.length) {
+    for (const e of errors) console.error(`❌ ${e.message}`);
     return 1;
   }
 
-  if (result.warnings.length) {
-    for (const w of result.warnings) console.warn(w);
+  if (warnings.length) {
+    for (const w of warnings) console.warn(`⚠️ ${w.message}`);
     if (failOnWarnings) return 1;
   }
 

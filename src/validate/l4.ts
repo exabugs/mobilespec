@@ -1,5 +1,7 @@
 import type { YamlFile } from './io.js';
 import type { Screen, Transition } from './types.js';
+import type { Diagnostic } from '../types/diagnostic.js';
+import { l2TransitionNotInL4, l4UnknownQuery, l4UnknownMutation } from './diagnostics.js';
 
 /* ================================
  * L4: Collect State Screens
@@ -26,8 +28,8 @@ export function collectStateScreens(stateFiles: YamlFile[]): Set<string> {
 export function validateL4L2Cross(
   stateScreens: Set<string>,
   l2Screens: Map<string, Screen>,
-): string[] {
-  const errors: string[] = [];
+): Diagnostic[] {
+  const errors: Diagnostic[] = [];
 
   // L4の画面IDがL2に存在するか確認
   for (const stateScreenId of stateScreens) {
@@ -39,9 +41,12 @@ export function validateL4L2Cross(
       }
     }
     if (!found) {
-      errors.push(
-        `❌ L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`,
-      );
+      errors.push({
+        code: 'L3_UNKNOWN_SCREEN',
+        level: 'error',
+        message: `L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`,
+        meta: { screenId: stateScreenId },
+      });
     }
   }
 
@@ -102,8 +107,8 @@ export function validateL4EventsCross(
   l4Details: Map<string, L4Details>,
   transitions: Transition[],
   l2Screens: Map<string, Screen>,
-): string[] {
-  const warnings: string[] = [];
+): Diagnostic[] {
+  const warnings: Diagnostic[] = [];
 
   // screenId -> transitionIds（context違いは同screenIdとして集約）
   const transitionIdsByScreenId = new Map<string, Set<string>>();
@@ -124,9 +129,7 @@ export function validateL4EventsCross(
     // 1) L4.events のキーは L2.transitions[].id と一致すべき（なければ warning）
     for (const eventKey of Object.keys(events)) {
       if (!l2Ids.has(eventKey)) {
-        warnings.push(
-          `⚠️ L4.events のキーが L2.transitions に存在しません: ${screenId}.${eventKey}`,
-        );
+        warnings.push(l2TransitionNotInL4(eventKey, screenId));
       }
     }
 
@@ -140,18 +143,14 @@ export function validateL4EventsCross(
       if (type === 'callQuery') {
         const q = (ev as any).query;
         if (typeof q !== 'string' || q.length === 0 || !d.queries.has(q)) {
-          warnings.push(
-            `⚠️ L4.events callQuery が未定義の query を参照: ${screenId}.${eventKey} -> queries.${String(q)}`,
-          );
+          warnings.push(l4UnknownQuery(String(q), eventKey, screenId));
         }
       }
 
       if (type === 'callMutation') {
         const m = (ev as any).mutation;
         if (typeof m !== 'string' || m.length === 0 || !d.mutations.has(m)) {
-          warnings.push(
-            `⚠️ L4.events callMutation が未定義の mutation を参照: ${screenId}.${eventKey} -> mutations.${String(m)}`,
-          );
+          warnings.push(l4UnknownMutation(String(m), eventKey, screenId));
         }
       }
     }

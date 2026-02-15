@@ -1,5 +1,7 @@
 import type { YamlFile } from './io.js';
 import type { UIAction, Transition } from './types.js';
+import type { Diagnostic } from '../types/diagnostic.js';
+import { l3ActionNotInL2 } from './diagnostics.js';
 
 /* ================================
  * Collect UI Actions
@@ -54,8 +56,8 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
  * Validate L3-L2 Cross
  * ================================ */
 
-export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): string[] {
-  const errors: string[] = [];
+export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): Diagnostic[] {
+  const errors: Diagnostic[] = [];
 
   // L2の遷移IDセットを作成
   const transitionIds = new Set<string>();
@@ -68,12 +70,7 @@ export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition
   // L3のactionとL2のidが完全一致するか確認
   for (const uiAction of uiActions) {
     if (!transitionIds.has(uiAction.action)) {
-      const sk = uiAction.context ? `${uiAction.screenId}[${uiAction.context}]` : uiAction.screenId;
-
-      errors.push(
-        `❌ L3-L2不整合: action="${uiAction.action}" に対応する L2 の遷移ID が存在しません ` +
-          `(screen: ${sk}, component: ${uiAction.componentId})`,
-      );
+      errors.push(l3ActionNotInL2(uiAction.action, uiAction.screenId, uiAction.context, uiAction.componentId));
     }
   }
 

@@ -5,6 +5,7 @@ import fg from 'fast-glob';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import { compileSchemaFromDir } from './lib/ajv.js';
+import type { Diagnostic } from './types/diagnostic.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
@@ -13,8 +14,8 @@ export type OpenapiCheckOptions = {
 };
 
 export type OpenapiCheckResult = {
-  errors: string[];
-  warnings: string[];
+  /** 構造化診断情報 */
+  diagnostics: Diagnostic[];
 };
 
 // ------------------------------------
@@ -123,7 +124,7 @@ function collectOperationIdRefsFromL4(
 ): {
   refs: L4Ref[];
   l4Files: string[];
-  errors: string[];
+  errors: Diagnostic[];
 } {
   const L4_DIR = path.join(specsDir, 'L4.state');
   const l4Files = fs.existsSync(L4_DIR)
@@ -131,7 +132,7 @@ function collectOperationIdRefsFromL4(
     : [];
 
   const refs: L4Ref[] = [];
-  const errors: string[] = [];
+  const errors: Diagnostic[] = [];
 
   const validate = compileSchemaFromDir(schemaDir, 'L4.state.schema.json');
 
@@ -144,7 +145,15 @@ function collectOperationIdRefsFromL4(
         validate.errors
           ?.map((e: any) => `${e.instancePath || '/'} ${e.message || ''}`.trim())
           .join(', ') ?? 'unknown error';
-      errors.push(`🔴 L4 invalid: ${path.relative(specsDir, f)}: ${details}`);
+      errors.push({
+        code: 'L4_INVALID',
+        level: 'error',
+        message: `L4 invalid: ${path.relative(specsDir, f)}: ${details}`,
+        meta: {
+          file: path.relative(specsDir, f),
+          details,
+        },
+      });
       continue;
     }
 
@@ -186,34 +195,53 @@ function collectOperationIdRefsFromL4(
 }
 
 export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCheckResult> {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const diagnostics: Diagnostic[] = [];
 
   if (!fs.existsSync(opts.openapiPath)) {
-    errors.push(`🔴 OpenAPI が見つかりません: ${opts.openapiPath}`);
-    return { errors, warnings };
+    diagnostics.push({
+      code: 'OPENAPI_NOT_FOUND',
+      level: 'error',
+      message: `OpenAPI が見つかりません: ${opts.openapiPath}`,
+      meta: { path: opts.openapiPath },
+    });
+    return { diagnostics };
   }
 
   // ---- OpenAPI parse ----
   const openapiRaw = readYamlUnknown(opts.openapiPath);
   const openapiParsed = OpenApiSchema.safeParse(openapiRaw);
   if (!openapiParsed.success) {
-    errors.push(`🔴 OpenAPI invalid: ${zodIssuesToText(openapiParsed.error.issues)}`);
-    return { errors, warnings };
+    diagnostics.push({
+      code: 'OPENAPI_INVALID',
+      level: 'error',
+      message: `OpenAPI invalid: ${zodIssuesToText(openapiParsed.error.issues)}`,
+      meta: { issues: openapiParsed.error.issues },
+    });
+    return { diagnostics };
   }
 
   const { opIds, duplicates, missing } = collectOperationIdsFromOpenApi(openapiParsed.data);
 
   // ---- OpenAPI quality ----
   if (missing.length) {
-    errors.push(`🔴 OpenAPI に operationId が無い operation: ${missing.join(', ')}`);
+    diagnostics.push({
+      code: 'OPENAPI_MISSING_OPERATION_ID',
+      level: 'error',
+      message: `OpenAPI に operationId が無い operation: ${missing.join(', ')}`,
+      meta: { operations: missing },
+    });
   }
 
   if (duplicates.size) {
     const lines = [...duplicates.entries()]
       .map(([id, where]) => `  - ${id}: ${where.join(', ')}`)
       .join('\n');
-    errors.push(`🔴 OpenAPI operationId が重複（operationId は一意が必須）:\n${lines}`);
+    diagnostics.push({
+      code: 'OPENAPI_DUPLICATE_OPERATION_ID',
+      level: 'error',
+      message: `OpenAPI operationId が重複（operationId は一意が必須）:\n${lines}`,
+      meta: { duplicates: Object.fromEntries(duplicates) },
+    });
   }
 
   // ---- L4 refs (AJV) ----
@@ -222,22 +250,35 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     l4Files,
     errors: l4Errors,
   } = collectOperationIdRefsFromL4(opts.specsDir, opts.schemaDir);
-  errors.push(...l4Errors);
+  diagnostics.push(...l4Errors);
 
   if (l4Files.length === 0) {
-    warnings.push('⚠️ L4.state が無いため、OpenAPI との突合をスキップしました');
-    return { errors, warnings };
+    diagnostics.push({
+      code: 'L4_NO_FILES',
+      level: 'warning',
+      message: 'L4.state が無いため、OpenAPI との突合をスキップしました',
+    });
+    return { diagnostics };
   }
 
   // ---- L4 -> OpenAPI ----
   for (const r of refs) {
     if (!opIds.has(r.operationId)) {
-      errors.push(
-        `🔴 L4 が存在しない operationId を参照: ${r.operationId} (${r.kind}:${r.name}) screen=${r.screenId} file=${path.relative(
+      diagnostics.push({
+        code: 'L4_UNKNOWN_OPERATION_ID',
+        level: 'error',
+        message: `L4 が存在しない operationId を参照: ${r.operationId} (${r.kind}:${r.name}) screen=${r.screenId} file=${path.relative(
           opts.specsDir,
           r.file,
         )}`,
-      );
+        meta: {
+          operationId: r.operationId,
+          kind: r.kind,
+          name: r.name,
+          screenId: r.screenId,
+          file: path.relative(opts.specsDir, r.file),
+        },
+      });
     }
   }
 
@@ -245,8 +286,13 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
   const used = new Set(refs.map((r) => r.operationId));
   const unused = [...opIds].filter((id) => !used.has(id));
   if (unused.length) {
-    warnings.push(`⚠️ OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`);
+    diagnostics.push({
+      code: 'L4_UNUSED_OPERATION_ID',
+      level: 'warning',
+      message: `OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`,
+      meta: { operationIds: unused },
+    });
   }
 
-  return { errors, warnings };
+  return { diagnostics };
 }

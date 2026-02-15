@@ -1,6 +1,13 @@
 import type { YamlFile } from './io.js';
 import type { MobileSpecConfig, Screen, Transition } from './types.js';
+import type { Diagnostic } from '../types/diagnostic.js';
 import { screenKey, displayId } from './keys.js';
+import {
+  duplicateScreenId,
+  invalidTransitionTarget,
+  targetContextNotFound,
+  ambiguousTarget,
+} from './diagnostics.js';
 
 /* ================================
  * Collect Screens and Transitions
@@ -12,11 +19,11 @@ export function collectScreensAndTransitions(
 ): {
   screens: Map<string, Screen>;
   transitions: Transition[];
-  errors: string[];
+  errors: Diagnostic[];
 } {
   const screens = new Map<string, Screen>();
   const variantsById = new Map<string, Screen[]>();
-  const errors: string[] = [];
+  const errors: Diagnostic[] = [];
 
   // グループの順序マップを作成
   const groupOrderMap = new Map<string, number>();
@@ -55,7 +62,7 @@ export function collectScreensAndTransitions(
 
     const key = screenKey(s.id, s.context);
     if (screens.has(key)) {
-      errors.push(`❌ Duplicate screen key: ${key} (id=${s.id}, context=${s.context ?? 'none'})`);
+      errors.push(duplicateScreenId(key, s.id, s.context));
       continue;
     }
 
@@ -83,7 +90,7 @@ export function collectScreensAndTransitions(
 
       const candidates = variantsById.get(targetId) ?? [];
       if (candidates.length === 0) {
-        errors.push(`❌ 遷移先が存在しません: ${fromKey} -> ${targetId} (transition: ${t.id})`);
+        errors.push(invalidTransitionTarget(fromKey, targetId, t.id));
         continue;
       }
 
@@ -92,9 +99,7 @@ export function collectScreensAndTransitions(
       if (targetContext) {
         const hit = candidates.find((s) => s.context === targetContext);
         if (!hit) {
-          errors.push(
-            `❌ targetContext not found: ${targetId}[${targetContext}] (from ${fromKey}, transition ${t.id})`,
-          );
+          errors.push(targetContextNotFound(targetId, targetContext, fromKey, t.id));
           continue;
         }
         toKey = screenKey(hit.id, hit.context);
@@ -103,10 +108,7 @@ export function collectScreensAndTransitions(
         toKey = screenKey(only.id, only.context);
       } else {
         const opts = candidates.map((s) => displayId(s.id, s.context)).join(', ');
-        errors.push(
-          `❌ Ambiguous target: ${targetId} has multiple contexts (${opts}). ` +
-            `Please set transition.targetContext (from ${fromKey}, transition ${t.id}).`,
-        );
+        errors.push(ambiguousTarget(targetId, opts, fromKey, t.id));
         continue;
       }
 
@@ -129,8 +131,8 @@ export function collectScreensAndTransitions(
 export function validateTransitions(
   screens: Map<string, Screen>,
   transitions: Transition[],
-): string[] {
-  const warnings: string[] = [];
+): Diagnostic[] {
+  const warnings: Diagnostic[] = [];
   const screensWithIncoming = new Set<string>();
   const screensWithOutgoing = new Set<string>();
 
@@ -143,14 +145,24 @@ export function validateTransitions(
   // 遷移元がない画面（entry以外）
   for (const [key, screen] of screens.entries()) {
     if (!screen.entry && !screensWithIncoming.has(key)) {
-      warnings.push(`⚠️  遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`);
+      warnings.push({
+        code: 'L2_INVALID_TRANSITION_FROM',
+        level: 'warning',
+        message: `遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`,
+        meta: { screenId: screen.id, context: screen.context, key },
+      });
     }
   }
 
   // 遷移先がない画面（exit以外）
   for (const [key, screen] of screens.entries()) {
     if (!screen.exit && !screensWithOutgoing.has(key)) {
-      warnings.push(`⚠️  遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`);
+      warnings.push({
+        code: 'L2_INVALID_TRANSITION_TO',
+        level: 'warning',
+        message: `遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`,
+        meta: { screenId: screen.id, context: screen.context, key },
+      });
     }
   }
 

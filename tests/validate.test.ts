@@ -6,6 +6,7 @@ import { validate } from '../src/validate/index.js';
 import { mkTempDir } from './helpers/mkTemp.js';
 import { writeOkSpec } from './helpers/okSpec.js';
 import { writeFile } from './helpers/mkSpec.js';
+import { errorsOf, warningsOf } from '../src/types/diagnostic.js';
 
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
@@ -16,8 +17,8 @@ describe('mobilespec validate (current behavior)', () => {
 
     const r = validate({ specsDir, schemaDir });
 
-    expect(r.errors).toEqual([]);
-    expect(r.warnings).toEqual([]);
+    expect(errorsOf(r.diagnostics)).toEqual([]);
+    expect(warningsOf(r.diagnostics)).toEqual([]);
   });
 
   it('ng: L3 action typo => L3-L2 mismatch goes to errors', () => {
@@ -42,7 +43,9 @@ screen:
 
     const r = validate({ specsDir, schemaDir });
 
-    // 現状実装のメッセージに合わせる（prefix一致）
-    expect(r.errors.join('\n')).toContain('❌ L3-L2不整合');
+    const errors = errorsOf(r.diagnostics);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].code).toBe('L3_ACTION_NOT_IN_L2');
+    expect(errors[0].meta?.action).toBe('open_tasks_typo');
   });
 });

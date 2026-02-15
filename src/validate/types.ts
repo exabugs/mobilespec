@@ -33,12 +33,14 @@ export type UIAction = {
   action: string;
 };
 
+import type { Diagnostic } from '../types/diagnostic.js';
+
 export type ValidationResult = {
   screens: Map<string, Screen>;
   config: MobileSpecConfig;
   transitions: Transition[];
   uiActions: UIAction[];
   stateScreens: Set<string>;
-  errors: string[];
-  warnings: string[];
+  /** 構造化診断情報 */
+  diagnostics: Diagnostic[];
 };

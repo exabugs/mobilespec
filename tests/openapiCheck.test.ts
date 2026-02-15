@@ -7,6 +7,7 @@ import { writeOkForOpenApi } from './helpers/openapiSpec.js';
 import { writeFile } from './helpers/mkSpec.js';
 
 import { openapiCheck } from '../src/openapiCheck.js';
+import { errorsOf, warningsOf } from '../src/types/diagnostic.js';
 
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
@@ -35,8 +36,8 @@ describe('openapiCheck', () => {
     const ctx = setup();
     const r = await run(ctx);
 
-    expect(r.errors).toEqual([]);
-    expect(r.warnings).toEqual([]);
+    expect(errorsOf(r.diagnostics)).toEqual([]);
+    expect(warningsOf(r.diagnostics)).toEqual([]);
   });
 
   it('ng: L4 references unknown operationId => error', async () => {
@@ -56,7 +57,10 @@ screen:
     );
 
     const r = await run(ctx);
-    expect(r.errors.join('\n')).toContain('🔴 L4 が存在しない operationId を参照');
+    const errors = errorsOf(r.diagnostics);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].code).toBe('L4_UNKNOWN_OPERATION_ID');
+    expect(errors[0].meta?.operationId).toBe('getTasks_typo');
   });
 
   it('ng: OpenAPI has missing operationId => error', async () => {
@@ -80,7 +84,9 @@ paths:
     );
 
     const r = await run(ctx);
-    expect(r.errors.join('\n')).toContain('🔴 OpenAPI に operationId が無い operation');
+    const errors = errorsOf(r.diagnostics);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].code).toBe('OPENAPI_MISSING_OPERATION_ID');
   });
 
   it('warn: OpenAPI operationId unused by L4 => warning', async () => {
@@ -111,8 +117,12 @@ paths:
     );
 
     const r = await run(ctx);
-    expect(r.errors).toEqual([]);
-    expect(r.warnings.join('\n')).toContain('⚠️ OpenAPI operationId が L4 から未参照');
+    const errors = errorsOf(r.diagnostics);
+    const warnings = warningsOf(r.diagnostics);
+    expect(errors).toEqual([]);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0].code).toBe('L4_UNUSED_OPERATION_ID');
+    expect(warnings[0].meta?.operationIds).toContain('getUsers');
   });
 
   it('ok: L4 includes selectRoot (allowed by L4 JSON Schema)', async () => {
@@ -133,7 +143,7 @@ screen:
     );
 
     const r = await run(ctx);
-    expect(r.errors).toEqual([]);
-    expect(r.warnings).toEqual([]);
+    expect(errorsOf(r.diagnostics)).toEqual([]);
+    expect(warningsOf(r.diagnostics)).toEqual([]);
   });
 });
