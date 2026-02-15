@@ -21,12 +21,12 @@ type AjvInstance = {
 export function validateSchema(
   files: YamlFile[],
   schemaPath: string,
-  label: string,
+  label: 'L2' | 'L3' | 'L4',
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
   if (!fs.existsSync(schemaPath)) {
-    diagnostics.push(schemaNotFound(schemaPath));
+    diagnostics.push(schemaNotFound(label, schemaPath));
     return diagnostics;
   }
 

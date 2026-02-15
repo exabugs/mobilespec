@@ -5,9 +5,23 @@ import type { Diagnostic } from '../types/diagnostic.js';
  * 診断生成ヘルパー関数
  */
 
-export function schemaNotFound(schemaPath: string): Diagnostic {
+type SchemaLabel = 'L2' | 'L3' | 'L4';
+
+const SCHEMA_NOT_FOUND_CODE_MAP: Record<SchemaLabel, 'L2_SCHEMA_NOT_FOUND' | 'L3_SCHEMA_NOT_FOUND' | 'L4_SCHEMA_NOT_FOUND'> = {
+  L2: 'L2_SCHEMA_NOT_FOUND',
+  L3: 'L3_SCHEMA_NOT_FOUND',
+  L4: 'L4_SCHEMA_NOT_FOUND',
+};
+
+const SCHEMA_INVALID_CODE_MAP: Record<SchemaLabel, 'L2_INVALID' | 'L3_INVALID' | 'L4_INVALID'> = {
+  L2: 'L2_INVALID',
+  L3: 'L3_INVALID',
+  L4: 'L4_INVALID',
+};
+
+export function schemaNotFound(label: SchemaLabel, schemaPath: string): Diagnostic {
   return {
-    code: 'L2_INVALID',
+    code: SCHEMA_NOT_FOUND_CODE_MAP[label],
     level: 'error',
     message: `スキーマファイルが見つかりません: ${schemaPath}`,
     meta: { schemaPath },
@@ -15,13 +29,13 @@ export function schemaNotFound(schemaPath: string): Diagnostic {
 }
 
 export function schemaError(
-  label: string,
+  label: SchemaLabel,
   filePath: string,
   instancePath: string,
   message: string,
 ): Diagnostic {
   return {
-    code: `${label}_INVALID` as 'L2_INVALID' | 'L3_INVALID' | 'L4_INVALID',
+    code: SCHEMA_INVALID_CODE_MAP[label],
     level: 'error',
     message: `${label} スキーマエラー (${filePath}): ${instancePath} ${message}`,
     meta: { label, filePath, instancePath, details: message },
