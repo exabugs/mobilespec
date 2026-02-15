@@ -21,7 +21,7 @@ export function schemaError(
   message: string,
 ): Diagnostic {
   return {
-    code: `${label}_INVALID` as any,
+    code: `${label}_INVALID` as 'L2_INVALID' | 'L3_INVALID' | 'L4_INVALID',
     level: 'error',
     message: `${label} スキーマエラー (${filePath}): ${instancePath} ${message}`,
     meta: { label, filePath, instancePath, details: message },

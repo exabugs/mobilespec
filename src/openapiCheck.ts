@@ -143,7 +143,7 @@ function collectOperationIdRefsFromL4(
     if (!ok) {
       const details =
         validate.errors
-          ?.map((e: any) => `${e.instancePath || '/'} ${e.message || ''}`.trim())
+          ?.map((e) => `${e.instancePath || '/'} ${e.message || ''}`.trim())
           .join(', ') ?? 'unknown error';
       errors.push({
         code: 'L4_INVALID',

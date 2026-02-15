@@ -19,14 +19,14 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
     const context = typeof screen.context === 'string' ? screen.context : undefined;
 
     // layout.children を再帰的に探索
-    function traverse(node: any) {
+    function traverse(node: Record<string, unknown>) {
       if (!node) return;
 
       if (node.action && typeof node.action === 'string') {
         actions.push({
           screenId,
           context,
-          componentId: node.id,
+          componentId: node.id as string,
           action: node.action,
         });
       }
@@ -37,9 +37,12 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
         }
       }
 
-      if (node.layout && node.layout.children && Array.isArray(node.layout.children)) {
-        for (const child of node.layout.children) {
-          traverse(child);
+      if (node.layout && typeof node.layout === 'object' && node.layout !== null) {
+        const layout = node.layout as Record<string, unknown>;
+        if (layout.children && Array.isArray(layout.children)) {
+          for (const child of layout.children) {
+            traverse(child);
+          }
         }
       }
     }
