@@ -46,7 +46,7 @@ screen:
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     
-    const error = findByCode(r, 'L3_ACTION_NOT_IN_L2');
+    const error = findByCode(errors, 'L3_ACTION_NOT_IN_L2');
     expect(error).toBeDefined();
     expect(error?.meta?.action).toBe('open_tasks_typo');
   });

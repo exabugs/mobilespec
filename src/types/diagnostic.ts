@@ -76,10 +76,10 @@ export function warningsOf(r: DiagnosticResult): Diagnostic[] {
 }
 
 /**
- * 診断結果から指定されたコードの診断を検索
+ * 診断配列から指定されたコードの診断を検索
  */
-export function findByCode(r: DiagnosticResult, code: DiagnosticCode): Diagnostic | undefined {
-  return r.diagnostics.find((d) => d.code === code);
+export function findByCode(diagnostics: Diagnostic[], code: DiagnosticCode): Diagnostic | undefined {
+  return diagnostics.find((d) => d.code === code);
 }
 
 

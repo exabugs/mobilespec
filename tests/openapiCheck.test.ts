@@ -60,7 +60,7 @@ screen:
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     
-    const error = findByCode(r, 'L4_UNKNOWN_OPERATION_ID');
+    const error = findByCode(errors, 'L4_UNKNOWN_OPERATION_ID');
     expect(error).toBeDefined();
     expect(error?.meta?.operationId).toBe('getTasks_typo');
   });
@@ -89,7 +89,7 @@ paths:
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
     
-    const error = findByCode(r, 'OPENAPI_MISSING_OPERATION_ID');
+    const error = findByCode(errors, 'OPENAPI_MISSING_OPERATION_ID');
     expect(error).toBeDefined();
   });
 
@@ -126,7 +126,7 @@ paths:
     expect(errors).toEqual([]);
     expect(warnings.length).toBeGreaterThan(0);
     
-    const warning = findByCode(r, 'L4_UNUSED_OPERATION_ID');
+    const warning = findByCode(warnings, 'L4_UNUSED_OPERATION_ID');
     expect(warning).toBeDefined();
     expect(warning?.meta?.operationIds).toContain('getUsers');
   });
