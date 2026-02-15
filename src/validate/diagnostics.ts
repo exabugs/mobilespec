@@ -158,3 +158,21 @@ export function l2TransitionUnused(
     meta: { transitionId, screenId, context },
   };
 }
+
+export function i18nMissingKey(locale: string, key: string): Diagnostic {
+  return {
+    code: 'I18N_MISSING_KEY',
+    level: 'error',
+    message: `i18n不整合: locale="${locale}" に key="${key}" が存在しません`,
+    meta: { locale, key },
+  };
+}
+
+export function i18nUntranslated(locale: string, key: string): Diagnostic {
+  return {
+    code: 'I18N_UNTRANSLATED',
+    level: 'warning',
+    message: `未翻訳: locale="${locale}" key="${key}" が空です`,
+    meta: { locale, key },
+  };
+}

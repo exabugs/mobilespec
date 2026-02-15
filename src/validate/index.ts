@@ -2,6 +2,7 @@ import path from 'path';
 
 import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
+import { validateI18n } from './i18n.js';
 import { loadYamlFiles } from './io.js';
 import { collectScreensAndTransitions, validateTransitions } from './l2.js';
 import {
@@ -99,6 +100,9 @@ export function validate(options: ValidateOptions): ValidationResult {
   const l4Details = collectL4Details(stateFiles);
   const l4EventWarnings = validateL4EventsCross(l4Details, transitions, screens);
 
+  // i18n 未翻訳チェック（warning）＋キー欠損（error）
+  const i18nDiagnostics = validateI18n(options.specsDir, config, screens, uiFiles);
+
   // 診断を統合
   const diagnostics = [
     ...l2SchemaErrors,
@@ -111,6 +115,7 @@ export function validate(options: ValidateOptions): ValidationResult {
     ...l2Warnings,
     ...unusedTransitionWarnings,
     ...l4EventWarnings,
+    ...i18nDiagnostics,
   ];
 
   return asValidationResult(screens, config, transitions, uiActions, stateScreens, diagnostics);

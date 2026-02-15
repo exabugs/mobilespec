@@ -149,4 +149,38 @@ screen:
     expect(warn).toBeDefined();
     expect(warn?.meta?.transitionId).toBe('unused_transition');
   });
+
+  it('ng: i18n untranslated => goes to warnings (I18N_UNTRANSLATED)', () => {
+    const specsDir = mkTempDir();
+    writeOkSpec(specsDir);
+
+    // i18n を用意（ja は埋める、en は空）
+    writeFile(
+      path.join(specsDir, 'i18n', 'ja.json'),
+      JSON.stringify(
+        {
+          'app.screen.home.title': 'ホーム',
+          'app.screen.home.component.action_open_tasks.label': '未処理タスク',
+        },
+        null,
+        2
+      ) + '\n'
+    );
+    writeFile(
+      path.join(specsDir, 'i18n', 'en.json'),
+      JSON.stringify(
+        {
+          'app.screen.home.title': '',
+          'app.screen.home.component.action_open_tasks.label': '',
+        },
+        null,
+        2
+      ) + '\n'
+    );
+
+    const r = validate({ specsDir, schemaDir });
+
+    const warn = findByCode(r, 'I18N_UNTRANSLATED');
+    expect(warn).toBeDefined();
+  });
 });

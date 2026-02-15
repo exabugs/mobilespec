@@ -9,6 +9,12 @@ export type MobileSpecConfig = {
     groupOrder: string[];
     screenOrder?: string[];
   };
+
+  // 追加：i18n（任意）
+  i18n?: {
+    // 例: ["ja", "en", "zh-Hans", "ko"]
+    locales?: string[];
+  };
 };
 
 export type Screen = {
