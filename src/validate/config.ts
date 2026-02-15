@@ -23,11 +23,14 @@ export function loadConfig(specsDir: string): MobileSpecConfig {
   }
 
   try {
-    const configData = yaml.load(fs.readFileSync(configPath, 'utf-8')) as any;
+    const configData = yaml.load(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    const mermaid = configData.mermaid && typeof configData.mermaid === 'object' && configData.mermaid !== null
+      ? configData.mermaid as Record<string, unknown>
+      : {};
     return {
       mermaid: {
-        groupOrder: configData.mermaid?.groupOrder || defaultConfig.mermaid.groupOrder,
-        screenOrder: configData.mermaid?.screenOrder || defaultConfig.mermaid.screenOrder,
+        groupOrder: Array.isArray(mermaid.groupOrder) ? mermaid.groupOrder : defaultConfig.mermaid.groupOrder,
+        screenOrder: Array.isArray(mermaid.screenOrder) ? mermaid.screenOrder : defaultConfig.mermaid.screenOrder,
       },
     };
   } catch {

@@ -18,15 +18,16 @@ type L2 = {
   };
 };
 
-function loadConfig(specsDir: string): any {
+function loadConfig(specsDir: string): Record<string, unknown> {
   const p = path.join(specsDir, 'mobilespec.config.yml');
   if (!fs.existsSync(p)) return { mermaid: { groupOrder: [] } };
-  return yaml.load(fs.readFileSync(p, 'utf8')) as any;
+  return yaml.load(fs.readFileSync(p, 'utf8')) as Record<string, unknown>;
 }
 
 export async function generateMermaid(options: Options): Promise<void> {
   const cfg = loadConfig(options.specsDir);
-  const L2_DIR = path.join(options.specsDir, cfg.paths?.l2 ?? 'L2.screenflows');
+  const paths = cfg.paths && typeof cfg.paths === 'object' && cfg.paths !== null ? cfg.paths as Record<string, unknown> : {};
+  const L2_DIR = path.join(options.specsDir, typeof paths.l2 === 'string' ? paths.l2 : 'L2.screenflows');
 
   const files = fg.sync(['**/*.flow.yaml'], { cwd: L2_DIR, absolute: true });
   const screens: Array<{
@@ -48,7 +49,9 @@ export async function generateMermaid(options: Options): Promise<void> {
     });
   }
 
-  const order: string[] = cfg.mermaid?.groupOrder ?? [];
+  const order: string[] = cfg.mermaid && typeof cfg.mermaid === 'object' && cfg.mermaid !== null 
+    ? (cfg.mermaid as Record<string, unknown>).groupOrder as string[] ?? []
+    : [];
   const groups = new Map<string, typeof screens>();
   for (const s of screens) {
     if (!groups.has(s.group)) groups.set(s.group, []);
@@ -56,7 +59,7 @@ export async function generateMermaid(options: Options): Promise<void> {
   }
 
   const sortedGroupKeys = [
-    ...order.filter((g: string) => groups.has(g)),
+    ...order.filter((g) => groups.has(g)),
     ...[...groups.keys()].filter((g) => !order.includes(g)).sort(),
   ];
 

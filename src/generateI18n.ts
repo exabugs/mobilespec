@@ -4,19 +4,25 @@ import fg from 'fast-glob';
 import yaml from 'js-yaml';
 
 type Options = { specsDir: string; schemaDir: string };
-type L3 = { screen: { id: string; context?: string; layout: any } };
+type L3 = { screen: { id: string; context?: string; layout: Record<string, unknown> } };
 
-function walk(node: any, visit: (n: any) => void) {
+function walk(node: Record<string, unknown>, visit: (n: Record<string, unknown>) => void) {
   if (!node) return;
   visit(node);
   if (Array.isArray(node.children)) for (const c of node.children) walk(c, visit);
-  if (node.layout?.children) for (const c of node.layout.children) walk(c, visit);
+  if (node.layout && typeof node.layout === 'object' && node.layout !== null) {
+    const layout = node.layout as Record<string, unknown>;
+    if (Array.isArray(layout.children)) {
+      for (const c of layout.children) walk(c, visit);
+    }
+  }
 }
 
 export async function generateI18n(options: Options): Promise<void> {
   const cfgPath = path.join(options.specsDir, 'mobilespec.config.yml');
-  const cfg = fs.existsSync(cfgPath) ? (yaml.load(fs.readFileSync(cfgPath, 'utf8')) as any) : {};
-  const L3_DIR = path.join(options.specsDir, cfg.paths?.l3 ?? 'L3.ui');
+  const cfg = fs.existsSync(cfgPath) ? (yaml.load(fs.readFileSync(cfgPath, 'utf8')) as Record<string, unknown>) : {};
+  const paths = cfg.paths && typeof cfg.paths === 'object' && cfg.paths !== null ? cfg.paths as Record<string, unknown> : {};
+  const L3_DIR = path.join(options.specsDir, typeof paths.l3 === 'string' ? paths.l3 : 'L3.ui');
 
   const files = fg.sync(['**/*.ui.yaml'], { cwd: L3_DIR, absolute: true });
   if (files.length === 0) {
@@ -35,7 +41,6 @@ export async function generateI18n(options: Options): Promise<void> {
     // L3 schema は screen.name を必須にしていないので、ノード name を中心に収集
 
     walk(doc.screen.layout, (n) => {
-      if (!n || typeof n !== 'object') return;
       if (typeof n.id === 'string' && typeof n.name === 'string') {
         const key = `ui.${screenId}.${n.id}`;
         ja[key] = n.name;

@@ -5,7 +5,14 @@ import type { Diagnostic } from '../types/diagnostic.js';
 import { schemaNotFound, schemaError } from './diagnostics.js';
 
 const require = createRequire(import.meta.url);
-const Ajv = (require('ajv/dist/2020') as any).default ?? require('ajv/dist/2020');
+const AjvClass = (require('ajv/dist/2020') as { default?: unknown }).default ?? require('ajv/dist/2020');
+
+type AjvInstance = {
+  compile: (schema: Record<string, unknown>) => {
+    (data: unknown): boolean;
+    errors?: Array<{ instancePath?: string; message?: string }> | null;
+  };
+};
 
 /* ================================
  * Schema Validation
@@ -23,8 +30,11 @@ export function validateSchema(
     return diagnostics;
   }
 
-  const schemaData = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
-  const ajv = new Ajv({ strict: false, allErrors: true });
+  const schemaData = JSON.parse(fs.readFileSync(schemaPath, 'utf-8')) as Record<string, unknown>;
+  const ajv = new (AjvClass as new (options: { strict: boolean; allErrors: boolean }) => AjvInstance)({ 
+    strict: false, 
+    allErrors: true 
+  });
   const validate = ajv.compile(schemaData);
 
   for (const file of files) {

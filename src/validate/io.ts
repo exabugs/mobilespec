@@ -8,7 +8,7 @@ import path from 'path';
 
 export type YamlFile = {
   path: string;
-  data: any;
+  data: Record<string, unknown>;
   group: string; // ディレクトリ構造から決定されるグループ
 };
 

@@ -2,24 +2,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import type { ValidateFunction } from 'ajv';
 
 const require = createRequire(import.meta.url);
 
 // draft 2020-12 用 AJV
-const AjvClass = (require('ajv/dist/2020') as any).default ?? require('ajv/dist/2020');
+const AjvClass = (require('ajv/dist/2020') as { default?: unknown }).default ?? require('ajv/dist/2020');
 
-type AjvInstance = InstanceType<typeof AjvClass>;
+type AjvInstance = {
+  compile: (schema: JsonSchema) => ValidateFunction;
+  getSchema: (id: string) => ValidateFunction | undefined;
+};
 
 // AJV singleton
 let ajvSingleton: AjvInstance | null = null;
 
 // compile 結果のキャッシュ（schemaPath / $id どちらでも引けるようにする）
-const compiledByPath = new Map<string, any>();
-const compiledById = new Map<string, any>();
+const compiledByPath = new Map<string, ValidateFunction>();
+const compiledById = new Map<string, ValidateFunction>();
 
 export function getAjv(): AjvInstance {
   if (!ajvSingleton) {
-    ajvSingleton = new AjvClass({
+    ajvSingleton = new (AjvClass as new (options: { strict: boolean; allErrors: boolean }) => AjvInstance)({
       strict: false,
       allErrors: true,
     });

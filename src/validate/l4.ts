@@ -61,7 +61,7 @@ export type L4Details = {
   screenId: string;
   queries: Set<string>;
   mutations: Set<string>;
-  events: Record<string, any>;
+  events: Record<string, Record<string, unknown>>;
 };
 
 export function collectL4Details(stateFiles: YamlFile[]): Map<string, L4Details> {
@@ -69,23 +69,23 @@ export function collectL4Details(stateFiles: YamlFile[]): Map<string, L4Details>
 
   for (const file of stateFiles) {
     const doc = file.data;
-    const screen = doc?.screen;
+    const screen = doc?.screen as Record<string, unknown> | undefined;
     const screenId = screen?.id;
     if (typeof screenId !== 'string' || screenId.length === 0) continue;
 
-    const data = screen?.data;
+    const data = screen?.data as Record<string, unknown> | undefined;
     const queriesObj =
-      data && typeof data === 'object' && data.queries && typeof data.queries === 'object'
-        ? (data.queries as Record<string, any>)
+      data?.queries && typeof data.queries === 'object' && data.queries !== null
+        ? (data.queries as Record<string, unknown>)
         : {};
     const mutationsObj =
-      data && typeof data === 'object' && data.mutations && typeof data.mutations === 'object'
-        ? (data.mutations as Record<string, any>)
+      data?.mutations && typeof data.mutations === 'object' && data.mutations !== null
+        ? (data.mutations as Record<string, unknown>)
         : {};
 
     const eventsObj =
-      screen?.events && typeof screen.events === 'object'
-        ? (screen.events as Record<string, any>)
+      screen?.events && typeof screen.events === 'object' && screen.events !== null
+        ? (screen.events as Record<string, Record<string, unknown>>)
         : {};
 
     map.set(screenId, {
@@ -138,17 +138,17 @@ export function validateL4EventsCross(
     for (const [eventKey, ev] of Object.entries(events)) {
       if (!ev || typeof ev !== 'object') continue;
 
-      const type = (ev as any).type;
+      const type = ev.type;
 
       if (type === 'callQuery') {
-        const q = (ev as any).query;
+        const q = ev.query;
         if (typeof q !== 'string' || q.length === 0 || !d.queries.has(q)) {
           warnings.push(l4UnknownQuery(String(q), eventKey, screenId));
         }
       }
 
       if (type === 'callMutation') {
-        const m = (ev as any).mutation;
+        const m = ev.mutation;
         if (typeof m !== 'string' || m.length === 0 || !d.mutations.has(m)) {
           warnings.push(l4UnknownMutation(String(m), eventKey, screenId));
         }
