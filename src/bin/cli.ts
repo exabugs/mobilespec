@@ -13,7 +13,7 @@
 
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { validate } from '../validate.js';
+import { validate } from '../validate/index.js';
 import { generateMermaid } from '../generateMermaid.js';
 import { generateI18n } from '../generateI18n.js';
 import { openapiCheck } from '../openapiCheck.js';

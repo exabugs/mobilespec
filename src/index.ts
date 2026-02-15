@@ -4,7 +4,7 @@
  * Main entry point for exporting public API
  */
 
-export * from './validate.js';
+export * from './validate/index.js';
 export * from './generateMermaid.js';
 export * from './generateI18n.js';
 export * from './openapiCheck.js';
