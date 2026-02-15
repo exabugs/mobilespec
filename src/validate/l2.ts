@@ -40,15 +40,15 @@ export function collectScreensAndTransitions(
   // screen を全部集める
   for (const file of files) {
     const doc = file.data;
-    const screen = doc.screen;
+    const screen = doc.screen as Record<string, unknown> | undefined;
     if (!screen) continue;
 
     // 画面の順序を設定（screenOrderMapに定義があればそれを使用、なければ99）
-    const screenOrder = screenOrderMap.get(screen.id) || 99;
+    const screenOrder = screenOrderMap.get(screen.id as string) || 99;
 
     const s: Screen = {
-      id: screen.id,
-      name: screen.name,
+      id: screen.id as string,
+      name: screen.name as string,
       group: file.group, // ディレクトリ構造から決定
       order: screenOrder,
       entry: screen.entry === true,
@@ -77,20 +77,21 @@ export function collectScreensAndTransitions(
 
   for (const file of files) {
     const doc = file.data;
-    const screen = doc.screen;
+    const screen = doc.screen as Record<string, unknown> | undefined;
     if (!screen) continue;
 
     const fromContext = typeof screen.context === 'string' ? screen.context : undefined;
-    const fromKey = screenKey(screen.id, fromContext);
+    const fromKey = screenKey(screen.id as string, fromContext);
 
-    for (const t of screen.transitions ?? []) {
-      const targetId: string = t.target;
+    for (const t of (screen.transitions as Array<Record<string, unknown>> | undefined) ?? []) {
+      const targetId: string = t.target as string;
       const targetContext: string | undefined =
         typeof t.targetContext === 'string' ? t.targetContext : undefined;
+      const transitionId = t.id as string;
 
       const candidates = variantsById.get(targetId) ?? [];
       if (candidates.length === 0) {
-        errors.push(invalidTransitionTarget(fromKey, targetId, t.id));
+        errors.push(invalidTransitionTarget(fromKey, targetId, transitionId));
         continue;
       }
 
@@ -99,7 +100,7 @@ export function collectScreensAndTransitions(
       if (targetContext) {
         const hit = candidates.find((s) => s.context === targetContext);
         if (!hit) {
-          errors.push(targetContextNotFound(targetId, targetContext, fromKey, t.id));
+          errors.push(targetContextNotFound(targetId, targetContext, fromKey, transitionId));
           continue;
         }
         toKey = screenKey(hit.id, hit.context);
@@ -108,14 +109,14 @@ export function collectScreensAndTransitions(
         toKey = screenKey(only.id, only.context);
       } else {
         const opts = candidates.map((s) => displayId(s.id, s.context)).join(', ');
-        errors.push(ambiguousTarget(targetId, opts, fromKey, t.id));
+        errors.push(ambiguousTarget(targetId, opts, fromKey, transitionId));
         continue;
       }
 
       transitions.push({
         fromKey,
         toKey,
-        label: t.id,
+        label: transitionId,
         self: fromKey === toKey,
       });
     }

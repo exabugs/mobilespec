@@ -25,7 +25,7 @@ export function loadYamlFiles(dir: string, extension: string): YamlFile[] {
       if (entry.isDirectory()) {
         traverse(fullPath, newRelativePath);
       } else if (entry.isFile() && entry.name.endsWith(extension)) {
-        const data = yaml.load(fs.readFileSync(fullPath, 'utf-8'));
+        const data = yaml.load(fs.readFileSync(fullPath, 'utf-8')) as Record<string, unknown>;
 
         // ディレクトリ構造からグループを決定
         // screenflows/ 直下のファイル → グループなし ('')

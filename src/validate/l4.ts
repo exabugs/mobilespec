@@ -12,9 +12,9 @@ export function collectStateScreens(stateFiles: YamlFile[]): Set<string> {
 
   for (const file of stateFiles) {
     const doc = file.data;
-    const screen = doc.screen;
+    const screen = doc.screen as Record<string, unknown> | undefined;
     if (screen && screen.id) {
-      stateScreens.add(screen.id);
+      stateScreens.add(screen.id as string);
     }
   }
 

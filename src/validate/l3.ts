@@ -12,10 +12,10 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
 
   for (const file of uiFiles) {
     const doc = file.data;
-    const screen = doc.screen;
+    const screen = doc.screen as Record<string, unknown> | undefined;
     if (!screen) continue;
 
-    const screenId = screen.id;
+    const screenId = screen.id as string;
     const context = typeof screen.context === 'string' ? screen.context : undefined;
 
     // layout.children を再帰的に探索
@@ -48,7 +48,7 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
     }
 
     if (screen.layout) {
-      traverse(screen.layout);
+      traverse(screen.layout as Record<string, unknown>);
     }
   }
 
