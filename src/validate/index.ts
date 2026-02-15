@@ -4,7 +4,12 @@ import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
 import { loadYamlFiles } from './io.js';
 import { collectScreensAndTransitions, validateTransitions } from './l2.js';
-import { collectUIActions, validateL3L2Cross, validateL3ScreensExistInL2 } from './l3.js';
+import {
+  collectUIActions,
+  validateL2TransitionsUsedByL3,
+  validateL3L2Cross,
+  validateL3ScreensExistInL2,
+} from './l3.js';
 import {
   collectL4Details,
   collectStateScreens,
@@ -84,6 +89,7 @@ export function validate(options: ValidateOptions): ValidationResult {
 
   // L3-L2クロスバリデーション（ここは引き続き error）
   const crossErrors = validateL3L2Cross(uiActions, transitions);
+  const unusedTransitionWarnings = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
 
   // L4バリデーション
   const stateScreens = collectStateScreens(stateFiles);
@@ -103,6 +109,7 @@ export function validate(options: ValidateOptions): ValidationResult {
     ...crossErrors,
     ...l4Errors,
     ...l2Warnings,
+    ...unusedTransitionWarnings,
     ...l4EventWarnings,
   ];
 

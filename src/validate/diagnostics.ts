@@ -144,3 +144,17 @@ export function l4UnknownMutation(
     meta: { mutationKey, eventKey, screenId },
   };
 }
+
+export function l2TransitionUnused(
+  transitionId: string,
+  screenId?: string,
+  context?: string
+): Diagnostic {
+  const sk = screenId ? (context ? `${screenId}[${context}]` : screenId) : '(unknown)';
+  return {
+    code: 'L2_TRANSITION_UNUSED',
+    level: 'warning',
+    message: `未使用: L2 transition="${transitionId}" が L3 から参照されていません (from screen: ${sk})`,
+    meta: { transitionId, screenId, context },
+  };
+}

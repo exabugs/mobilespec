@@ -100,4 +100,53 @@ screen:
     const warn = findByCode(r, 'L2_TRANSITION_NOT_IN_L4');
     expect(warn).toBeDefined();
   });
+
+  it('ng: unused L2 transition => goes to warnings (L2_TRANSITION_UNUSED)', () => {
+    const specsDir = mkTempDir();
+    const { l2, l4 } = writeOkSpec(specsDir);
+
+    // OK を 1点だけ壊す：L2に「未使用transition」を追加（L3は触らないので未使用になる）
+    writeFile(
+      path.join(l2, 'home.flow.yaml'),
+      `
+screen:
+  id: home
+  name: ホーム
+  type: screen
+  entry: true
+  transitions:
+    - id: open_tasks
+      trigger: tap
+      target: tasks
+    - id: unused_transition
+      trigger: tap
+      target: tasks
+`
+    );
+
+    // 余計な warning を避けるため、L4.events にも unused_transition を用意しておく
+    writeFile(
+      path.join(l4, 'home.state.yaml'),
+      `
+screen:
+  id: home
+  events:
+    open_tasks:
+      type: navigate
+      targetScreenId: tasks
+    unused_transition:
+      type: navigate
+      targetScreenId: tasks
+`
+    );
+
+    const r = validate({ specsDir, schemaDir });
+
+    // error は出ない（warning のみ）
+    expect(errorsOf(r)).toEqual([]);
+
+    const warn = findByCode(r, 'L2_TRANSITION_UNUSED');
+    expect(warn).toBeDefined();
+    expect(warn?.meta?.transitionId).toBe('unused_transition');
+  });
 });

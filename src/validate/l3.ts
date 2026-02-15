@@ -1,5 +1,5 @@
 import type { Diagnostic } from '../types/diagnostic.js';
-import { l3ActionNotInL2 } from './diagnostics.js';
+import { l2TransitionUnused, l3ActionNotInL2 } from './diagnostics.js';
 import type { YamlFile } from './io.js';
 import { displayId, screenKey } from './keys.js';
 import type { Screen, Transition, UIAction } from './types.js';
@@ -128,4 +128,26 @@ export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition
   }
 
   return errors;
+}
+
+export function validateL2TransitionsUsedByL3(
+  uiActions: UIAction[],
+  transitions: Transition[],
+  l2Screens: Map<string, Screen>
+): Diagnostic[] {
+  const warnings: Diagnostic[] = [];
+
+  const used = new Set<string>();
+  for (const a of uiActions) used.add(a.action);
+
+  for (const t of transitions) {
+    if (!t.label) continue;
+
+    if (!used.has(t.label)) {
+      const from = l2Screens.get(t.fromKey);
+      warnings.push(l2TransitionUnused(t.label, from?.id, from?.context));
+    }
+  }
+
+  return warnings;
 }
