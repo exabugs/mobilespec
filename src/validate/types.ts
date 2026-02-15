@@ -1,3 +1,5 @@
+import type { Diagnostic, DiagnosticResult } from '../types/diagnostic.js';
+
 /* ================================
  * Types
  * ================================ */
@@ -32,8 +34,6 @@ export type UIAction = {
   componentId: string;
   action: string;
 };
-
-import type { Diagnostic, DiagnosticResult } from "../types/diagnostic.js";
 
 export type ValidationResult = DiagnosticResult & {
   screens: Map<string, Screen>;

@@ -1,15 +1,14 @@
 // src/lib/ajv.ts
-import fs from "node:fs";
-import path from "node:path";
-import { createRequire } from "node:module";
-import type { ValidateFunction } from "ajv";
+import type { ValidateFunction } from 'ajv';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 
 // draft 2020-12 用 AJV
 const AjvClass =
-  (require("ajv/dist/2020") as { default?: unknown }).default ??
-  require("ajv/dist/2020");
+  (require('ajv/dist/2020') as { default?: unknown }).default ?? require('ajv/dist/2020');
 
 type AjvInstance = {
   compile: (schema: JsonSchema) => ValidateFunction;
@@ -49,7 +48,7 @@ export function compileSchema(schemaPath: string) {
     throw new Error(`Schema not found: ${abs}`);
   }
 
-  const schema = JSON.parse(fs.readFileSync(abs, "utf-8")) as JsonSchema;
+  const schema = JSON.parse(fs.readFileSync(abs, 'utf-8')) as JsonSchema;
   const ajv = getAjv();
 
   // 2) $id があるなら、AJV に既に登録済みか確認（ここが今回のバグ回避ポイント）

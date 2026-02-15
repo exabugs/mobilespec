@@ -1,19 +1,20 @@
-import fs from "fs";
-import yaml from "js-yaml";
-import path from "path";
-import type { MobileSpecConfig } from "./types.js";
+import fs from 'fs';
+import yaml from 'js-yaml';
+import path from 'path';
+
+import type { MobileSpecConfig } from './types.js';
 
 /* ================================
  * Load Config
  * ================================ */
 
 export function loadConfig(specsDir: string): MobileSpecConfig {
-  const configPath = path.join(specsDir, "mobilespec.config.yml");
+  const configPath = path.join(specsDir, 'mobilespec.config.yml');
 
   // デフォルト設定
   const defaultConfig: MobileSpecConfig = {
     mermaid: {
-      groupOrder: ["Home", "Task", "Venue", "Misc"],
+      groupOrder: ['Home', 'Task', 'Venue', 'Misc'],
       screenOrder: [],
     },
   };
@@ -23,13 +24,9 @@ export function loadConfig(specsDir: string): MobileSpecConfig {
   }
 
   try {
-    const configData = yaml.load(
-      fs.readFileSync(configPath, "utf-8"),
-    ) as Record<string, unknown>;
+    const configData = yaml.load(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
     const mermaid =
-      configData.mermaid &&
-      typeof configData.mermaid === "object" &&
-      configData.mermaid !== null
+      configData.mermaid && typeof configData.mermaid === 'object' && configData.mermaid !== null
         ? (configData.mermaid as Record<string, unknown>)
         : {};
     return {

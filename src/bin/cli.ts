@@ -10,17 +10,17 @@
  *   mobilespec check    [--specs-dir <path>] [--schema-dir <path>] [--fail-on-warnings|--no-fail-on-warnings]
  *   mobilespec openapi-check --openapi <path> [--specs-dir <path>] [--schema-dir <path>] [--fail-on-warnings|--no-fail-on-warnings]
  */
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-import path from "path";
-import { fileURLToPath } from "url";
-import { validate } from "../validate/index.js";
-import { generateMermaid } from "../generateMermaid.js";
-import { generateI18n } from "../generateI18n.js";
-import { openapiCheck } from "../openapiCheck.js";
+import { generateI18n } from '../generateI18n.js';
+import { generateMermaid } from '../generateMermaid.js';
+import { openapiCheck } from '../openapiCheck.js';
+import { validate } from '../validate/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DEFAULT_SCHEMA_DIR = path.join(__dirname, "..", "..", "schema");
+const DEFAULT_SCHEMA_DIR = path.join(__dirname, '..', '..', 'schema');
 
 type Args = {
   cmd: string;
@@ -32,8 +32,7 @@ type Args = {
 
 function getArg(args: string[], key: string): string | undefined {
   const i = args.indexOf(key);
-  if (i >= 0 && args[i + 1] && !args[i + 1].startsWith("--"))
-    return args[i + 1];
+  if (i >= 0 && args[i + 1] && !args[i + 1].startsWith('--')) return args[i + 1];
   return undefined;
 }
 
@@ -43,16 +42,16 @@ function has(args: string[], key: string) {
 
 function parse(): Args {
   const args = process.argv.slice(2);
-  const cmd = args[0] ?? "check";
-  const specsDir = getArg(args, "--specs-dir") ?? process.cwd();
-  const schemaDir = getArg(args, "--schema-dir") ?? DEFAULT_SCHEMA_DIR;
+  const cmd = args[0] ?? 'check';
+  const specsDir = getArg(args, '--specs-dir') ?? process.cwd();
+  const schemaDir = getArg(args, '--schema-dir') ?? DEFAULT_SCHEMA_DIR;
 
   // デフォルトは「warningで落とす」＝strict寄り
   let failOnWarnings = true;
-  if (has(args, "--no-fail-on-warnings")) failOnWarnings = false;
-  if (has(args, "--fail-on-warnings")) failOnWarnings = true;
+  if (has(args, '--no-fail-on-warnings')) failOnWarnings = false;
+  if (has(args, '--fail-on-warnings')) failOnWarnings = true;
 
-  const openapiPath = getArg(args, "--openapi");
+  const openapiPath = getArg(args, '--openapi');
   return { cmd, specsDir, schemaDir, failOnWarnings, openapiPath };
 }
 
@@ -63,11 +62,11 @@ function parse(): Args {
  * - otherwise => 0
  */
 function reportAndCode(
-  result: { diagnostics: { level: "error" | "warning"; message: string }[] },
-  failOnWarnings: boolean,
+  result: { diagnostics: { level: 'error' | 'warning'; message: string }[] },
+  failOnWarnings: boolean
 ): number {
-  const errors = result.diagnostics.filter((d) => d.level === "error");
-  const warnings = result.diagnostics.filter((d) => d.level === "warning");
+  const errors = result.diagnostics.filter((d) => d.level === 'error');
+  const warnings = result.diagnostics.filter((d) => d.level === 'warning');
 
   if (errors.length) {
     for (const e of errors) console.error(`❌ ${e.message}`);
@@ -86,29 +85,29 @@ async function main() {
   const a = parse();
 
   switch (a.cmd) {
-    case "validate": {
+    case 'validate': {
       const r = await validate({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
       });
       const code = reportAndCode(r, a.failOnWarnings);
-      if (code === 0) console.log("✅ validate OK");
+      if (code === 0) console.log('✅ validate OK');
       process.exit(code);
     }
 
-    case "mermaid": {
+    case 'mermaid': {
       await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      console.log("✅ mermaid OK");
+      console.log('✅ mermaid OK');
       process.exit(0);
     }
 
-    case "i18n": {
+    case 'i18n': {
       await generateI18n({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      console.log("✅ i18n OK");
+      console.log('✅ i18n OK');
       process.exit(0);
     }
 
-    case "check": {
+    case 'check': {
       const r = await validate({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
@@ -118,13 +117,13 @@ async function main() {
 
       await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
       await generateI18n({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      console.log("✅ check OK");
+      console.log('✅ check OK');
       process.exit(0);
     }
 
-    case "openapi-check": {
+    case 'openapi-check': {
       if (!a.openapiPath) {
-        console.error("openapi-check requires --openapi <path>");
+        console.error('openapi-check requires --openapi <path>');
         process.exit(1);
       }
 
@@ -135,7 +134,7 @@ async function main() {
       });
 
       const code = reportAndCode(r, a.failOnWarnings);
-      if (code === 0) console.log("✅ openapi-check OK");
+      if (code === 0) console.log('✅ openapi-check OK');
       process.exit(code);
     }
 

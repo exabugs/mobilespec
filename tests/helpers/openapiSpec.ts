@@ -1,6 +1,7 @@
 // tests/helpers/openapiSpec.ts
-import path from "node:path";
-import { mkSpecDir, writeFile } from "./mkSpec.js";
+import path from 'node:path';
+
+import { mkSpecDir, writeFile } from './mkSpec.js';
 
 /**
  * openapiCheck.ts の “OK” 最小セットを生成
@@ -16,7 +17,7 @@ export function writeOkForOpenApi(specsDir: string, openapiPath: string) {
 
   // L4: operationId 参照（selectRoot は書かない！）
   writeFile(
-    path.join(l4, "home.state.yaml"),
+    path.join(l4, 'home.state.yaml'),
     `
 screen:
   id: home
@@ -24,7 +25,7 @@ screen:
     queries:
       load_tasks:
         operationId: getTasks
-`,
+`
   );
 
   // OpenAPI: operationId を供給
@@ -42,7 +43,7 @@ paths:
       responses:
         "200":
           description: ok
-`,
+`
   );
 
   return { l4 };

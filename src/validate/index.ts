@@ -1,21 +1,18 @@
-import path from "path";
-import type { ValidationResult } from "./types.js";
-import type { Diagnostic } from "../types/diagnostic.js";
-import { loadYamlFiles } from "./io.js";
-import { loadConfig } from "./config.js";
-import { validateSchema } from "./schema.js";
-import { collectScreensAndTransitions, validateTransitions } from "./l2.js";
+import path from 'path';
+
+import type { Diagnostic } from '../types/diagnostic.js';
+import { loadConfig } from './config.js';
+import { loadYamlFiles } from './io.js';
+import { collectScreensAndTransitions, validateTransitions } from './l2.js';
+import { collectUIActions, validateL3L2Cross, validateL3ScreensExistInL2 } from './l3.js';
 import {
-  collectUIActions,
-  validateL3L2Cross,
-  validateL3ScreensExistInL2,
-} from "./l3.js";
-import {
-  collectStateScreens,
-  validateL4L2Cross,
   collectL4Details,
+  collectStateScreens,
   validateL4EventsCross,
-} from "./l4.js";
+  validateL4L2Cross,
+} from './l4.js';
+import { validateSchema } from './schema.js';
+import type { ValidationResult } from './types.js';
 
 /* ================================
  * Main Validation Function
@@ -28,12 +25,12 @@ export interface ValidateOptions {
 
 // ヘルパー関数: diagnostics配列をValidationResultに変換
 function asValidationResult(
-  screens: ValidationResult["screens"],
-  config: ValidationResult["config"],
-  transitions: ValidationResult["transitions"],
-  uiActions: ValidationResult["uiActions"],
-  stateScreens: ValidationResult["stateScreens"],
-  diagnostics: Diagnostic[],
+  screens: ValidationResult['screens'],
+  config: ValidationResult['config'],
+  transitions: ValidationResult['transitions'],
+  uiActions: ValidationResult['uiActions'],
+  stateScreens: ValidationResult['stateScreens'],
+  diagnostics: Diagnostic[]
 ): ValidationResult {
   return {
     screens,
@@ -43,36 +40,33 @@ function asValidationResult(
     stateScreens,
     diagnostics,
     get errors() {
-      return diagnostics.filter((d) => d.level === "error");
+      return diagnostics.filter((d) => d.level === 'error');
     },
     get warnings() {
-      return diagnostics.filter((d) => d.level === "warning");
+      return diagnostics.filter((d) => d.level === 'warning');
     },
   };
 }
 
 export function validate(options: ValidateOptions): ValidationResult {
-  const SCREENFLOW_DIR = path.join(options.specsDir, "L2.screenflows");
-  const UI_DIR = path.join(options.specsDir, "L3.ui");
-  const STATE_DIR = path.join(options.specsDir, "L4.state");
-  const L2_SCHEMA_PATH = path.join(
-    options.schemaDir,
-    "L2.screenflows.schema.json",
-  );
-  const L3_SCHEMA_PATH = path.join(options.schemaDir, "L3.ui.schema.json");
-  const L4_SCHEMA_PATH = path.join(options.schemaDir, "L4.state.schema.json");
+  const SCREENFLOW_DIR = path.join(options.specsDir, 'L2.screenflows');
+  const UI_DIR = path.join(options.specsDir, 'L3.ui');
+  const STATE_DIR = path.join(options.specsDir, 'L4.state');
+  const L2_SCHEMA_PATH = path.join(options.schemaDir, 'L2.screenflows.schema.json');
+  const L3_SCHEMA_PATH = path.join(options.schemaDir, 'L3.ui.schema.json');
+  const L4_SCHEMA_PATH = path.join(options.schemaDir, 'L4.state.schema.json');
 
-  const flowFiles = loadYamlFiles(SCREENFLOW_DIR, ".flow.yaml");
-  const uiFiles = loadYamlFiles(UI_DIR, ".ui.yaml");
-  const stateFiles = loadYamlFiles(STATE_DIR, ".state.yaml");
+  const flowFiles = loadYamlFiles(SCREENFLOW_DIR, '.flow.yaml');
+  const uiFiles = loadYamlFiles(UI_DIR, '.ui.yaml');
+  const stateFiles = loadYamlFiles(STATE_DIR, '.state.yaml');
 
   // 設定ファイル読み込み
   const config = loadConfig(options.specsDir);
 
   // スキーマバリデーション
-  const l2SchemaErrors = validateSchema(flowFiles, L2_SCHEMA_PATH, "L2");
-  const l3SchemaErrors = validateSchema(uiFiles, L3_SCHEMA_PATH, "L3");
-  const l4SchemaErrors = validateSchema(stateFiles, L4_SCHEMA_PATH, "L4");
+  const l2SchemaErrors = validateSchema(flowFiles, L2_SCHEMA_PATH, 'L2');
+  const l3SchemaErrors = validateSchema(uiFiles, L3_SCHEMA_PATH, 'L3');
+  const l4SchemaErrors = validateSchema(stateFiles, L4_SCHEMA_PATH, 'L4');
 
   // L2バリデーション
   const {
@@ -97,11 +91,7 @@ export function validate(options: ValidateOptions): ValidationResult {
 
   // L4.events (callQuery/callMutation) の cross-layer（導入期は warning）
   const l4Details = collectL4Details(stateFiles);
-  const l4EventWarnings = validateL4EventsCross(
-    l4Details,
-    transitions,
-    screens,
-  );
+  const l4EventWarnings = validateL4EventsCross(l4Details, transitions, screens);
 
   // 診断を統合
   const diagnostics = [
@@ -116,12 +106,5 @@ export function validate(options: ValidateOptions): ValidationResult {
     ...l4EventWarnings,
   ];
 
-  return asValidationResult(
-    screens,
-    config,
-    transitions,
-    uiActions,
-    stateScreens,
-    diagnostics,
-  );
+  return asValidationResult(screens, config, transitions, uiActions, stateScreens, diagnostics);
 }

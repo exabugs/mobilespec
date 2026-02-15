@@ -15,7 +15,7 @@ on:
       openapi_path:
         type: string
         required: false
-        default: ""
+        default: ''
 
       fail_on_warnings:
         type: boolean

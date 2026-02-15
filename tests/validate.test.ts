@@ -1,12 +1,12 @@
 // tests/validate.test.ts
-import { describe, it, expect } from 'vitest';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
+import { errorsOf, findByCode, warningsOf } from '../src/types/diagnostic.js';
 import { validate } from '../src/validate/index.js';
+import { writeFile } from './helpers/mkSpec.js';
 import { mkTempDir } from './helpers/mkTemp.js';
 import { writeOkSpec } from './helpers/okSpec.js';
-import { writeFile } from './helpers/mkSpec.js';
-import { errorsOf, warningsOf, findByCode } from '../src/types/diagnostic.js';
 
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
@@ -38,7 +38,7 @@ screen:
         id: action_open_tasks
         name: 未処理タスク
         action: open_tasks_typo
-`,
+`
     );
 
     const r = validate({ specsDir, schemaDir });
@@ -68,7 +68,7 @@ screen:
         id: action_open_tasks
         name: 未処理タスク
         action: open_tasks_unfinished
-`,
+`
     );
 
     const r = validate({ specsDir, schemaDir });
@@ -92,7 +92,7 @@ screen:
     queries: {}
     mutations: {}
   events: {}
-`,
+`
     );
 
     const r = validate({ specsDir, schemaDir });

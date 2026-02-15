@@ -1,13 +1,13 @@
-import type { YamlFile } from "./io.js";
-import type { MobileSpecConfig, Screen, Transition } from "./types.js";
-import type { Diagnostic } from "../types/diagnostic.js";
-import { screenKey, displayId } from "./keys.js";
+import type { Diagnostic } from '../types/diagnostic.js';
 import {
+  ambiguousTarget,
   duplicateScreenId,
   invalidTransitionTarget,
   targetContextNotFound,
-  ambiguousTarget,
-} from "./diagnostics.js";
+} from './diagnostics.js';
+import type { YamlFile } from './io.js';
+import { displayId, screenKey } from './keys.js';
+import type { MobileSpecConfig, Screen, Transition } from './types.js';
 
 /* ================================
  * Collect Screens and Transitions
@@ -15,7 +15,7 @@ import {
 
 export function collectScreensAndTransitions(
   files: YamlFile[],
-  config: MobileSpecConfig,
+  config: MobileSpecConfig
 ): {
   screens: Map<string, Screen>;
   transitions: Transition[];
@@ -53,7 +53,7 @@ export function collectScreensAndTransitions(
       order: screenOrder,
       entry: screen.entry === true,
       exit: screen.exit === true,
-      context: typeof screen.context === "string" ? screen.context : undefined,
+      context: typeof screen.context === 'string' ? screen.context : undefined,
     };
 
     // groupOrderMap を使うなら、ここで order を group の優先度に寄せる等も可能だが、
@@ -80,16 +80,13 @@ export function collectScreensAndTransitions(
     const screen = doc.screen as Record<string, unknown> | undefined;
     if (!screen) continue;
 
-    const fromContext =
-      typeof screen.context === "string" ? screen.context : undefined;
+    const fromContext = typeof screen.context === 'string' ? screen.context : undefined;
     const fromKey = screenKey(screen.id as string, fromContext);
 
-    for (const t of (screen.transitions as
-      | Array<Record<string, unknown>>
-      | undefined) ?? []) {
+    for (const t of (screen.transitions as Array<Record<string, unknown>> | undefined) ?? []) {
       const targetId: string = t.target as string;
       const targetContext: string | undefined =
-        typeof t.targetContext === "string" ? t.targetContext : undefined;
+        typeof t.targetContext === 'string' ? t.targetContext : undefined;
       const transitionId = t.id as string;
 
       const candidates = variantsById.get(targetId) ?? [];
@@ -103,14 +100,7 @@ export function collectScreensAndTransitions(
       if (targetContext) {
         const hit = candidates.find((s) => s.context === targetContext);
         if (!hit) {
-          errors.push(
-            targetContextNotFound(
-              targetId,
-              targetContext,
-              fromKey,
-              transitionId,
-            ),
-          );
+          errors.push(targetContextNotFound(targetId, targetContext, fromKey, transitionId));
           continue;
         }
         toKey = screenKey(hit.id, hit.context);
@@ -118,9 +108,7 @@ export function collectScreensAndTransitions(
         const only = candidates[0];
         toKey = screenKey(only.id, only.context);
       } else {
-        const opts = candidates
-          .map((s) => displayId(s.id, s.context))
-          .join(", ");
+        const opts = candidates.map((s) => displayId(s.id, s.context)).join(', ');
         errors.push(ambiguousTarget(targetId, opts, fromKey, transitionId));
         continue;
       }
@@ -143,7 +131,7 @@ export function collectScreensAndTransitions(
 
 export function validateTransitions(
   screens: Map<string, Screen>,
-  transitions: Transition[],
+  transitions: Transition[]
 ): Diagnostic[] {
   const warnings: Diagnostic[] = [];
   const screensWithIncoming = new Set<string>();
@@ -159,8 +147,8 @@ export function validateTransitions(
   for (const [key, screen] of screens.entries()) {
     if (!screen.entry && !screensWithIncoming.has(key)) {
       warnings.push({
-        code: "L2_INVALID_TRANSITION_FROM",
-        level: "warning",
+        code: 'L2_INVALID_TRANSITION_FROM',
+        level: 'warning',
         message: `遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`,
         meta: { screenId: screen.id, context: screen.context, key },
       });
@@ -171,8 +159,8 @@ export function validateTransitions(
   for (const [key, screen] of screens.entries()) {
     if (!screen.exit && !screensWithOutgoing.has(key)) {
       warnings.push({
-        code: "L2_INVALID_TRANSITION_TO",
-        level: "warning",
+        code: 'L2_INVALID_TRANSITION_TO',
+        level: 'warning',
         message: `遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`,
         meta: { screenId: screen.id, context: screen.context, key },
       });
