@@ -37,6 +37,8 @@ export type DiagnosticCode =
   | "L3_ACTION_NOT_IN_L2"
   // L2-L4整合性
   | "L2_TRANSITION_NOT_IN_L4"
+  // 未使用検知
+  | "L2_TRANSITION_UNUSED"
   // L4内部整合性
   | "L4_UNKNOWN_QUERY"
   | "L4_UNKNOWN_MUTATION";
