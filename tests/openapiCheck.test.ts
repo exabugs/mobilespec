@@ -6,38 +6,45 @@ import { mkTempDir } from './helpers/mkTemp.js';
 import { writeOkForOpenApi } from './helpers/openapiSpec.js';
 import { writeFile } from './helpers/mkSpec.js';
 
-// openapiCheck の import は、あなたの src 側の export 構造に合わせて調整してください。
-// 例1) src/openapiCheck.ts がある場合:
 import { openapiCheck } from '../src/openapiCheck.js';
-// 例2) もし index.ts から export しているなら:
-// import { openapiCheck } from "../src/index.js";
 
-describe('openapiCheck (current behavior)', () => {
+const schemaDir = path.resolve(process.cwd(), 'schema');
+
+type Ctx = {
+  specsDir: string;
+  openapiPath: string;
+};
+
+function setup(): Ctx {
+  const specsDir = mkTempDir();
+  const openapiPath = path.join(specsDir, 'openapi.yaml');
+  writeOkForOpenApi(specsDir, openapiPath);
+  return { specsDir, openapiPath };
+}
+
+async function run(ctx: Ctx) {
+  return openapiCheck({
+    specsDir: ctx.specsDir,
+    schemaDir,
+    openapiPath: ctx.openapiPath,
+  });
+}
+
+describe('openapiCheck', () => {
   it('ok: errors=[], warnings=[]', async () => {
-    const specsDir = mkTempDir();
-    const openapiPath = path.join(specsDir, 'openapi.yaml');
-
-    writeOkForOpenApi(specsDir, openapiPath);
-
-    const r = await openapiCheck({
-      specsDir,
-      schemaDir: 'unused',
-      openapiPath,
-    });
+    const ctx = setup();
+    const r = await run(ctx);
 
     expect(r.errors).toEqual([]);
     expect(r.warnings).toEqual([]);
   });
 
   it('ng: L4 references unknown operationId => error', async () => {
-    const specsDir = mkTempDir();
-    const openapiPath = path.join(specsDir, 'openapi.yaml');
-
-    writeOkForOpenApi(specsDir, openapiPath);
+    const ctx = setup();
 
     // OK を 1点だけ壊す：L4 の operationId を typo
     writeFile(
-      path.join(specsDir, 'L4.state', 'home.state.yaml'),
+      path.join(ctx.specsDir, 'L4.state', 'home.state.yaml'),
       `
 screen:
   id: home
@@ -48,25 +55,16 @@ screen:
 `,
     );
 
-    const r = await openapiCheck({
-      specsDir,
-      schemaDir: 'unused',
-      openapiPath,
-    });
-
+    const r = await run(ctx);
     expect(r.errors.join('\n')).toContain('🔴 L4 が存在しない operationId を参照');
   });
 
   it('ng: OpenAPI has missing operationId => error', async () => {
-    const specsDir = mkTempDir();
-    const openapiPath = path.join(specsDir, 'openapi.yaml');
-
-    // L4 は OK を書く
-    writeOkForOpenApi(specsDir, openapiPath);
+    const ctx = setup();
 
     // OpenAPI を 1点だけ壊す：operationId を消す
     writeFile(
-      openapiPath,
+      ctx.openapiPath,
       `
 openapi: 3.0.3
 info:
@@ -81,24 +79,16 @@ paths:
 `,
     );
 
-    const r = await openapiCheck({
-      specsDir,
-      schemaDir: 'unused',
-      openapiPath,
-    });
-
+    const r = await run(ctx);
     expect(r.errors.join('\n')).toContain('🔴 OpenAPI に operationId が無い operation');
   });
 
   it('warn: OpenAPI operationId unused by L4 => warning', async () => {
-    const specsDir = mkTempDir();
-    const openapiPath = path.join(specsDir, 'openapi.yaml');
-
-    writeOkForOpenApi(specsDir, openapiPath);
+    const ctx = setup();
 
     // OpenAPI に未参照の operationId を追加
     writeFile(
-      openapiPath,
+      ctx.openapiPath,
       `
 openapi: 3.0.3
 info:
@@ -120,25 +110,17 @@ paths:
 `,
     );
 
-    const r = await openapiCheck({
-      specsDir,
-      schemaDir: 'unused',
-      openapiPath,
-    });
-
+    const r = await run(ctx);
     expect(r.errors).toEqual([]);
     expect(r.warnings.join('\n')).toContain('⚠️ OpenAPI operationId が L4 から未参照');
   });
 
-  it('ng: L4 includes selectRoot => error (strict schema)', async () => {
-    const specsDir = mkTempDir();
-    const openapiPath = path.join(specsDir, 'openapi.yaml');
+  it('ok: L4 includes selectRoot (allowed by L4 JSON Schema)', async () => {
+    const ctx = setup();
 
-    writeOkForOpenApi(specsDir, openapiPath);
-
-    // openapiCheck 側の L4 Zod は strictObject({operationId}) なので selectRoot は “invalid”
+    // AJV（L4.schema.json）に統一したので selectRoot は “invalid” ではない
     writeFile(
-      path.join(specsDir, 'L4.state', 'home.state.yaml'),
+      path.join(ctx.specsDir, 'L4.state', 'home.state.yaml'),
       `
 screen:
   id: home
@@ -150,12 +132,8 @@ screen:
 `,
     );
 
-    const r = await openapiCheck({
-      specsDir,
-      schemaDir: 'unused',
-      openapiPath,
-    });
-
-    expect(r.errors.join('\n')).toContain('🔴 L4 invalid');
+    const r = await run(ctx);
+    expect(r.errors).toEqual([]);
+    expect(r.warnings).toEqual([]);
   });
 });

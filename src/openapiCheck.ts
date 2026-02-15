@@ -4,10 +4,11 @@ import path from 'node:path';
 import fg from 'fast-glob';
 import yaml from 'js-yaml';
 import { z } from 'zod';
+import { compileSchemaFromDir } from './lib/ajv.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
-  schemaDir: string; // 未使用（将来拡張用）
+  schemaDir: string; // ★ ここを使う（L4.state.schema.json）
   openapiPath: string;
 };
 
@@ -17,7 +18,7 @@ export type OpenapiCheckResult = {
 };
 
 // ------------------------------------
-// Zod schemas (v4)
+// Zod schemas (OpenAPI only)
 // ------------------------------------
 
 // OpenAPI: operationId だけ拾う。他は全部無視したいので "looseObject"
@@ -33,23 +34,6 @@ const OpenApiSchema = z.looseObject({
   openapi: z.string().optional(),
   swagger: z.string().optional(),
   paths: z.record(z.string(), OpenApiPathItemSchema).optional(),
-});
-
-// L4: 混在禁止 → selectRoot を書かせない（strictObject）
-const L4ApiCallSchema = z.strictObject({
-  operationId: z.string().min(1),
-});
-
-const L4DocSchema = z.looseObject({
-  screen: z.looseObject({
-    id: z.string().min(1),
-    data: z
-      .looseObject({
-        queries: z.record(z.string(), L4ApiCallSchema).optional(),
-        mutations: z.record(z.string(), L4ApiCallSchema).optional(),
-      })
-      .optional(),
-  }),
 });
 
 const HttpMethodSchema = z.enum([
@@ -86,7 +70,6 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
 
   const paths = doc.paths ?? {};
 
-  // ここは parse済みの型なので unknown になりません
   for (const [p, pathItem] of Object.entries(paths) as [string, OpenApiPathItem][]) {
     for (const [methodRaw, op] of Object.entries(pathItem) as [string, OpenApiOperation][]) {
       const m = methodRaw.toLowerCase();
@@ -115,14 +98,30 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
   return { opIds, duplicates, missing };
 }
 
-function collectOperationIdRefsFromL4(specsDir: string): {
-  refs: Array<{
-    screenId: string;
-    kind: 'query' | 'mutation';
-    name: string;
-    operationId: string;
-    file: string;
-  }>;
+// ------------------------------------
+// AJV (L4 validation)
+// ------------------------------------
+
+// const require = createRequire(import.meta.url);
+// const Ajv = (require('ajv/dist/2020') as any).default ?? require('ajv/dist/2020');
+
+type L4Ref = {
+  screenId: string;
+  kind: 'query' | 'mutation';
+  name: string;
+  operationId: string;
+  file: string;
+};
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function collectOperationIdRefsFromL4(
+  specsDir: string,
+  schemaDir: string,
+): {
+  refs: L4Ref[];
   l4Files: string[];
   errors: string[];
 } {
@@ -131,37 +130,55 @@ function collectOperationIdRefsFromL4(specsDir: string): {
     ? fg.sync(['**/*.state.yaml'], { cwd: L4_DIR, absolute: true })
     : [];
 
-  const refs: Array<{
-    screenId: string;
-    kind: 'query' | 'mutation';
-    name: string;
-    operationId: string;
-    file: string;
-  }> = [];
+  const refs: L4Ref[] = [];
   const errors: string[] = [];
+
+  const validate = compileSchemaFromDir(schemaDir, 'L4.state.schema.json');
 
   for (const f of l4Files) {
     const raw = readYamlUnknown(f);
-    const parsed = L4DocSchema.safeParse(raw);
 
-    if (!parsed.success) {
-      errors.push(
-        `🔴 L4 invalid: ${path.relative(specsDir, f)}: ${zodIssuesToText(parsed.error.issues)}`,
-      );
+    const ok = validate(raw);
+    if (!ok) {
+      const details =
+        validate.errors
+          ?.map((e: any) => `${e.instancePath || '/'} ${e.message || ''}`.trim())
+          .join(', ') ?? 'unknown error';
+      errors.push(`🔴 L4 invalid: ${path.relative(specsDir, f)}: ${details}`);
       continue;
     }
 
-    const doc = parsed.data;
-    const screenId = doc.screen.id;
+    // ここから先は “スキーマに通った raw” として、必要箇所だけ安全に読む
+    if (!isRecord(raw)) continue;
 
-    const queries = doc.screen.data?.queries ?? {};
-    for (const [name, q] of Object.entries(queries)) {
-      refs.push({ screenId, kind: 'query', name, operationId: q.operationId, file: f });
+    const screen = raw['screen'];
+    if (!isRecord(screen)) continue;
+
+    const screenId = String(screen['id'] ?? '');
+
+    const data = screen['data'];
+    if (!isRecord(data)) continue;
+
+    const queries = data['queries'];
+    if (isRecord(queries)) {
+      for (const [name, q] of Object.entries(queries)) {
+        if (!isRecord(q)) continue;
+        const operationId = q['operationId'];
+        if (typeof operationId === 'string' && operationId.trim() !== '') {
+          refs.push({ screenId, kind: 'query', name, operationId, file: f });
+        }
+      }
     }
 
-    const mutations = doc.screen.data?.mutations ?? {};
-    for (const [name, m] of Object.entries(mutations)) {
-      refs.push({ screenId, kind: 'mutation', name, operationId: m.operationId, file: f });
+    const mutations = data['mutations'];
+    if (isRecord(mutations)) {
+      for (const [name, m] of Object.entries(mutations)) {
+        if (!isRecord(m)) continue;
+        const operationId = m['operationId'];
+        if (typeof operationId === 'string' && operationId.trim() !== '') {
+          refs.push({ screenId, kind: 'mutation', name, operationId, file: f });
+        }
+      }
     }
   }
 
@@ -199,8 +216,12 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     errors.push(`🔴 OpenAPI operationId が重複（operationId は一意が必須）:\n${lines}`);
   }
 
-  // ---- L4 refs ----
-  const { refs, l4Files, errors: l4Errors } = collectOperationIdRefsFromL4(opts.specsDir);
+  // ---- L4 refs (AJV) ----
+  const {
+    refs,
+    l4Files,
+    errors: l4Errors,
+  } = collectOperationIdRefsFromL4(opts.specsDir, opts.schemaDir);
   errors.push(...l4Errors);
 
   if (l4Files.length === 0) {
