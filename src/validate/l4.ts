@@ -46,7 +46,7 @@ export function validateL4L2Cross(
     }
     if (!found) {
       errors.push({
-        code: "L3_UNKNOWN_SCREEN",
+        code: "L4_UNKNOWN_SCREEN",
         level: "error",
         message: `L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`,
         meta: { screenId: stateScreenId },
@@ -112,7 +112,6 @@ export function collectL4Details(
 /* ================================
  * Validate L4.events Cross (WARNING)
  * ================================ */
-
 export function validateL4EventsCross(
   l4Details: Map<string, L4Details>,
   transitions: Transition[],
@@ -136,29 +135,43 @@ export function validateL4EventsCross(
     const events = d.events ?? {};
     const l2Ids = transitionIdsByScreenId.get(screenId) ?? new Set<string>();
 
-    // 1) L4.events のキーは L2.transitions[].id と一致すべき（なければ warning）
-    for (const eventKey of Object.keys(events)) {
-      if (!l2Ids.has(eventKey)) {
-        warnings.push(l2TransitionNotInL4(eventKey, screenId));
+    const eventKeys = new Set(Object.keys(events));
+
+    // (1) L2 にある transitionId が L4.events に無い → warning（既存 helper を正しく使う）
+    for (const transitionId of l2Ids) {
+      if (!eventKeys.has(transitionId)) {
+        warnings.push(l2TransitionNotInL4(transitionId, screenId));
       }
     }
 
-    // 2) callQuery/query は data.queries のキーを参照
-    // 3) callMutation/mutation は data.mutations のキーを参照
+    // (2) L4.events にある eventKey が L2 に無い → warning（既存コード流用）
+    for (const eventKey of eventKeys) {
+      if (!l2Ids.has(eventKey)) {
+        warnings.push({
+          code: "L3_UNKNOWN_TRANSITION",
+          level: "warning",
+          message: `L4-L2不整合: L4.events["${eventKey}"] に対応する L2 transition id が存在しません (screen: ${screenId})`,
+          meta: { eventKey, screenId },
+        });
+      }
+    }
+
+    // (3) callQuery/query は data.queries のキーを参照
+    // (4) callMutation/mutation は data.mutations のキーを参照
     for (const [eventKey, ev] of Object.entries(events)) {
       if (!ev || typeof ev !== "object") continue;
 
-      const type = ev.type;
+      const type = (ev as Record<string, unknown>).type;
 
       if (type === "callQuery") {
-        const q = ev.query;
+        const q = (ev as Record<string, unknown>).query;
         if (typeof q !== "string" || q.length === 0 || !d.queries.has(q)) {
           warnings.push(l4UnknownQuery(String(q), eventKey, screenId));
         }
       }
 
       if (type === "callMutation") {
-        const m = ev.mutation;
+        const m = (ev as Record<string, unknown>).mutation;
         if (typeof m !== "string" || m.length === 0 || !d.mutations.has(m)) {
           warnings.push(l4UnknownMutation(String(m), eventKey, screenId));
         }

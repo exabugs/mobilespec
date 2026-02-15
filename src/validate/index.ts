@@ -5,7 +5,11 @@ import { loadYamlFiles } from "./io.js";
 import { loadConfig } from "./config.js";
 import { validateSchema } from "./schema.js";
 import { collectScreensAndTransitions, validateTransitions } from "./l2.js";
-import { collectUIActions, validateL3L2Cross } from "./l3.js";
+import {
+  collectUIActions,
+  validateL3L2Cross,
+  validateL3ScreensExistInL2,
+} from "./l3.js";
 import {
   collectStateScreens,
   validateL4L2Cross,
@@ -81,6 +85,9 @@ export function validate(options: ValidateOptions): ValidationResult {
   // L3バリデーション
   const uiActions = collectUIActions(uiFiles);
 
+  // L3 → L2: screen が L2 に存在するか（error）
+  const l3ScreenErrors = validateL3ScreensExistInL2(uiFiles, screens);
+
   // L3-L2クロスバリデーション（ここは引き続き error）
   const crossErrors = validateL3L2Cross(uiActions, transitions);
 
@@ -102,6 +109,7 @@ export function validate(options: ValidateOptions): ValidationResult {
     ...l3SchemaErrors,
     ...l4SchemaErrors,
     ...l2Errors,
+    ...l3ScreenErrors,
     ...crossErrors,
     ...l4Errors,
     ...l2Warnings,

@@ -32,6 +32,7 @@ export type DiagnosticCode =
   | "L3_UNKNOWN_TRANSITION"
   // L4関連
   | "L4_SCHEMA_NOT_FOUND"
+  | "L4_UNKNOWN_SCREEN"
   // L2-L3整合性
   | "L3_ACTION_NOT_IN_L2"
   // L2-L4整合性

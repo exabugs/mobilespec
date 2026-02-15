@@ -1,26 +1,31 @@
-import type { YamlFile } from './io.js';
-import type { UIAction, Transition, Screen } from './types.js';
-import type { Diagnostic } from '../types/diagnostic.js';
-import { l3ActionNotInL2 } from './diagnostics.js';
-import { screenKey, displayId } from './keys.js';
+import type { YamlFile } from "./io.js";
+import type { UIAction, Transition, Screen } from "./types.js";
+import type { Diagnostic } from "../types/diagnostic.js";
+import { l3ActionNotInL2 } from "./diagnostics.js";
+import { screenKey, displayId } from "./keys.js";
 
 function isObj(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
+  return typeof v === "object" && v !== null;
 }
 
 function getScreenInfo(
   file: YamlFile,
-): { screenId: string; context?: string; screen: Record<string, unknown> } | null {
+): {
+  screenId: string;
+  context?: string;
+  screen: Record<string, unknown>;
+} | null {
   const doc = file.data;
   if (!isObj(doc)) return null;
 
   const screen = (doc as Record<string, unknown>).screen;
   if (!isObj(screen)) return null;
 
-  const screenId = typeof screen.id === 'string' ? screen.id : '';
+  const screenId = typeof screen.id === "string" ? screen.id : "";
   if (!screenId) return null;
 
-  const context = typeof screen.context === 'string' ? screen.context : undefined;
+  const context =
+    typeof screen.context === "string" ? screen.context : undefined;
 
   return { screenId, context, screen };
 }
@@ -42,11 +47,11 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
     function traverse(node: unknown) {
       if (!isObj(node)) return;
 
-      if (typeof node.action === 'string') {
+      if (typeof node.action === "string") {
         actions.push({
           screenId,
           context,
-          componentId: typeof node.id === 'string' ? node.id : '(no-id)',
+          componentId: typeof node.id === "string" ? node.id : "(no-id)",
           action: node.action,
         });
       }
@@ -90,8 +95,8 @@ export function validateL3ScreensExistInL2(
     const key = screenKey(screenId, context);
     if (!l2Screens.has(key)) {
       errors.push({
-        code: 'L3_UNKNOWN_SCREEN',
-        level: 'error',
+        code: "L3_UNKNOWN_SCREEN",
+        level: "error",
         message: `L3-L2不整合: L3 screen が L2 に存在しません (${displayId(screenId, context)} / key=${key})`,
         meta: { filePath: file.path, screenId, context, key },
       });
@@ -105,7 +110,10 @@ export function validateL3ScreensExistInL2(
  * Validate L3-L2 Cross
  * ================================ */
 
-export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): Diagnostic[] {
+export function validateL3L2Cross(
+  uiActions: UIAction[],
+  transitions: Transition[],
+): Diagnostic[] {
   const errors: Diagnostic[] = [];
 
   // L2の遷移IDセットを作成
@@ -120,7 +128,12 @@ export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition
   for (const uiAction of uiActions) {
     if (!transitionIds.has(uiAction.action)) {
       errors.push(
-        l3ActionNotInL2(uiAction.action, uiAction.screenId, uiAction.context, uiAction.componentId),
+        l3ActionNotInL2(
+          uiAction.action,
+          uiAction.screenId,
+          uiAction.context,
+          uiAction.componentId,
+        ),
       );
     }
   }
