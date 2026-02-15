@@ -146,12 +146,19 @@ function walkStrict(
     const node = cur.node;
     const nodePath = cur.nodePath;
 
-    const nodeId = assertIdLike(node.id, 'node.id', filePath, nodePath);
-    visit(node, nodePath, nodeId);
+    // root(layout) だけ id チェックをスキップ
+    const isRoot = nodePath === 'screen.layout';
+
+    let nodeId = '';
+    if (!isRoot) {
+      nodeId = assertIdLike(node.id, 'node.id', filePath, nodePath);
+      visit(node, nodePath, nodeId);
+    }
 
     const children = collectChildren(node, nodePath);
-    // DFS
-    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
+    for (let i = children.length - 1; i >= 0; i--) {
+      stack.push(children[i]);
+    }
   }
 }
 
