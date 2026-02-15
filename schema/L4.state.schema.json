@@ -12,21 +12,26 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "context": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
         "states": {
           "type": "array",
           "minItems": 0,
           "items": { "$ref": "#/$defs/state" }
         },
-
-        "data": { "$ref": "#/$defs/data" },
-
+        "data": {
+          "$ref": "#/$defs/data"
+        },
         "conditions": {
           "type": "object",
           "additionalProperties": { "type": "string" }
         },
-
         "events": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/event" }
