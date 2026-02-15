@@ -33,9 +33,9 @@ export type UIAction = {
   action: string;
 };
 
-import type { Diagnostic } from '../types/diagnostic.js';
+import type { Diagnostic, DiagnosticResult } from "../types/diagnostic.js";
 
-export type ValidationResult = {
+export type ValidationResult = DiagnosticResult & {
   screens: Map<string, Screen>;
   config: MobileSpecConfig;
   transitions: Transition[];

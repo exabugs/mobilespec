@@ -1,6 +1,6 @@
 // tests/helpers/okSpec.ts
-import path from 'node:path';
-import { mkSpecDir, writeFile } from './mkSpec.js';
+import path from "node:path";
+import { mkSpecDir, writeFile } from "./mkSpec.js";
 
 /**
  * 現状の実装・スキーマに一致する最小OKセットを生成
@@ -18,7 +18,7 @@ export function writeOkSpec(specsDir: string) {
 
   // L2
   writeFile(
-    path.join(l2, 'home.flow.yaml'),
+    path.join(l2, "home.flow.yaml"),
     `
 screen:
   id: home
@@ -33,7 +33,7 @@ screen:
   );
 
   writeFile(
-    path.join(l2, 'tasks.flow.yaml'),
+    path.join(l2, "tasks.flow.yaml"),
     `
 screen:
   id: tasks
@@ -46,7 +46,7 @@ screen:
 
   // L3（layout 必須）
   writeFile(
-    path.join(l3, 'home.ui.yaml'),
+    path.join(l3, "home.ui.yaml"),
     `
 screen:
   id: home
@@ -62,7 +62,7 @@ screen:
 
   // L4（screen.id 必須。events は任意）
   writeFile(
-    path.join(l4, 'home.state.yaml'),
+    path.join(l4, "home.state.yaml"),
     `
 screen:
   id: home

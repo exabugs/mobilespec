@@ -1,13 +1,15 @@
 // src/lib/ajv.ts
-import fs from 'node:fs';
-import path from 'node:path';
-import { createRequire } from 'node:module';
-import type { ValidateFunction } from 'ajv';
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import type { ValidateFunction } from "ajv";
 
 const require = createRequire(import.meta.url);
 
 // draft 2020-12 用 AJV
-const AjvClass = (require('ajv/dist/2020') as { default?: unknown }).default ?? require('ajv/dist/2020');
+const AjvClass =
+  (require("ajv/dist/2020") as { default?: unknown }).default ??
+  require("ajv/dist/2020");
 
 type AjvInstance = {
   compile: (schema: JsonSchema) => ValidateFunction;
@@ -23,7 +25,10 @@ const compiledById = new Map<string, ValidateFunction>();
 
 export function getAjv(): AjvInstance {
   if (!ajvSingleton) {
-    ajvSingleton = new (AjvClass as new (options: { strict: boolean; allErrors: boolean }) => AjvInstance)({
+    ajvSingleton = new (AjvClass as new (options: {
+      strict: boolean;
+      allErrors: boolean;
+    }) => AjvInstance)({
       strict: false,
       allErrors: true,
     });
@@ -44,7 +49,7 @@ export function compileSchema(schemaPath: string) {
     throw new Error(`Schema not found: ${abs}`);
   }
 
-  const schema = JSON.parse(fs.readFileSync(abs, 'utf-8')) as JsonSchema;
+  const schema = JSON.parse(fs.readFileSync(abs, "utf-8")) as JsonSchema;
   const ajv = getAjv();
 
   // 2) $id があるなら、AJV に既に登録済みか確認（ここが今回のバグ回避ポイント）

@@ -1,7 +1,7 @@
-import type { YamlFile } from './io.js';
-import type { UIAction, Transition } from './types.js';
-import type { Diagnostic } from '../types/diagnostic.js';
-import { l3ActionNotInL2 } from './diagnostics.js';
+import type { YamlFile } from "./io.js";
+import type { UIAction, Transition } from "./types.js";
+import type { Diagnostic } from "../types/diagnostic.js";
+import { l3ActionNotInL2 } from "./diagnostics.js";
 
 /* ================================
  * Collect UI Actions
@@ -16,13 +16,14 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
     if (!screen) continue;
 
     const screenId = screen.id as string;
-    const context = typeof screen.context === 'string' ? screen.context : undefined;
+    const context =
+      typeof screen.context === "string" ? screen.context : undefined;
 
     // layout.children を再帰的に探索
     function traverse(node: Record<string, unknown>) {
       if (!node) return;
 
-      if (node.action && typeof node.action === 'string') {
+      if (node.action && typeof node.action === "string") {
         actions.push({
           screenId,
           context,
@@ -37,7 +38,11 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
         }
       }
 
-      if (node.layout && typeof node.layout === 'object' && node.layout !== null) {
+      if (
+        node.layout &&
+        typeof node.layout === "object" &&
+        node.layout !== null
+      ) {
         const layout = node.layout as Record<string, unknown>;
         if (layout.children && Array.isArray(layout.children)) {
           for (const child of layout.children) {
@@ -59,7 +64,10 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
  * Validate L3-L2 Cross
  * ================================ */
 
-export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): Diagnostic[] {
+export function validateL3L2Cross(
+  uiActions: UIAction[],
+  transitions: Transition[],
+): Diagnostic[] {
   const errors: Diagnostic[] = [];
 
   // L2の遷移IDセットを作成
@@ -73,7 +81,14 @@ export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition
   // L3のactionとL2のidが完全一致するか確認
   for (const uiAction of uiActions) {
     if (!transitionIds.has(uiAction.action)) {
-      errors.push(l3ActionNotInL2(uiAction.action, uiAction.screenId, uiAction.context, uiAction.componentId));
+      errors.push(
+        l3ActionNotInL2(
+          uiAction.action,
+          uiAction.screenId,
+          uiAction.context,
+          uiAction.componentId,
+        ),
+      );
     }
   }
 

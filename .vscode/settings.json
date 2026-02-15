@@ -5,7 +5,12 @@
     "source.fixAll.eslint": "explicit"
   },
   "eslint.format.enable": false,
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
   "prettier.printWidth": 100,
   "prettier.tabWidth": 2,
   "prettier.semi": true,

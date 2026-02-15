@@ -1,17 +1,17 @@
 // tests/validate.test.ts
-import { describe, it, expect } from 'vitest';
-import path from 'node:path';
+import { describe, it, expect } from "vitest";
+import path from "node:path";
 
-import { validate } from '../src/validate/index.js';
-import { mkTempDir } from './helpers/mkTemp.js';
-import { writeOkSpec } from './helpers/okSpec.js';
-import { writeFile } from './helpers/mkSpec.js';
-import { errorsOf, warningsOf, findByCode } from '../src/types/diagnostic.js';
+import { validate } from "../src/validate/index.js";
+import { mkTempDir } from "./helpers/mkTemp.js";
+import { writeOkSpec } from "./helpers/okSpec.js";
+import { writeFile } from "./helpers/mkSpec.js";
+import { errorsOf, warningsOf, findByCode } from "../src/types/diagnostic.js";
 
-const schemaDir = path.resolve(process.cwd(), 'schema');
+const schemaDir = path.resolve(process.cwd(), "schema");
 
-describe('mobilespec validate (current behavior)', () => {
-  it('ok: errors=[], warnings=[]', () => {
+describe("mobilespec validate (current behavior)", () => {
+  it("ok: errors=[], warnings=[]", () => {
     const specsDir = mkTempDir();
     writeOkSpec(specsDir);
 
@@ -21,13 +21,13 @@ describe('mobilespec validate (current behavior)', () => {
     expect(warningsOf(r)).toEqual([]);
   });
 
-  it('ng: L3 action typo => L3-L2 mismatch goes to errors', () => {
+  it("ng: L3 action typo => L3-L2 mismatch goes to errors", () => {
     const specsDir = mkTempDir();
     const { l3 } = writeOkSpec(specsDir);
 
     // OK を 1点だけ壊す：action が L2.transition.id に存在しない
     writeFile(
-      path.join(l3, 'home.ui.yaml'),
+      path.join(l3, "home.ui.yaml"),
       `
 screen:
   id: home
@@ -45,9 +45,9 @@ screen:
 
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
-    
-    const error = findByCode(errors, 'L3_ACTION_NOT_IN_L2');
+
+    const error = findByCode(r, "L3_ACTION_NOT_IN_L2");
     expect(error).toBeDefined();
-    expect(error?.meta?.action).toBe('open_tasks_typo');
+    expect(error?.meta?.action).toBe("open_tasks_typo");
   });
 });

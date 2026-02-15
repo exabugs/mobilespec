@@ -1,7 +1,11 @@
-import type { YamlFile } from './io.js';
-import type { Screen, Transition } from './types.js';
-import type { Diagnostic } from '../types/diagnostic.js';
-import { l2TransitionNotInL4, l4UnknownQuery, l4UnknownMutation } from './diagnostics.js';
+import type { YamlFile } from "./io.js";
+import type { Screen, Transition } from "./types.js";
+import type { Diagnostic } from "../types/diagnostic.js";
+import {
+  l2TransitionNotInL4,
+  l4UnknownQuery,
+  l4UnknownMutation,
+} from "./diagnostics.js";
 
 /* ================================
  * L4: Collect State Screens
@@ -42,8 +46,8 @@ export function validateL4L2Cross(
     }
     if (!found) {
       errors.push({
-        code: 'L3_UNKNOWN_SCREEN',
-        level: 'error',
+        code: "L3_UNKNOWN_SCREEN",
+        level: "error",
         message: `L4-L2不整合: state screen="${stateScreenId}" に対応する L2 の画面が存在しません`,
         meta: { screenId: stateScreenId },
       });
@@ -64,27 +68,33 @@ export type L4Details = {
   events: Record<string, Record<string, unknown>>;
 };
 
-export function collectL4Details(stateFiles: YamlFile[]): Map<string, L4Details> {
+export function collectL4Details(
+  stateFiles: YamlFile[],
+): Map<string, L4Details> {
   const map = new Map<string, L4Details>();
 
   for (const file of stateFiles) {
     const doc = file.data;
     const screen = doc?.screen as Record<string, unknown> | undefined;
     const screenId = screen?.id;
-    if (typeof screenId !== 'string' || screenId.length === 0) continue;
+    if (typeof screenId !== "string" || screenId.length === 0) continue;
 
     const data = screen?.data as Record<string, unknown> | undefined;
     const queriesObj =
-      data?.queries && typeof data.queries === 'object' && data.queries !== null
+      data?.queries && typeof data.queries === "object" && data.queries !== null
         ? (data.queries as Record<string, unknown>)
         : {};
     const mutationsObj =
-      data?.mutations && typeof data.mutations === 'object' && data.mutations !== null
+      data?.mutations &&
+      typeof data.mutations === "object" &&
+      data.mutations !== null
         ? (data.mutations as Record<string, unknown>)
         : {};
 
     const eventsObj =
-      screen?.events && typeof screen.events === 'object' && screen.events !== null
+      screen?.events &&
+      typeof screen.events === "object" &&
+      screen.events !== null
         ? (screen.events as Record<string, Record<string, unknown>>)
         : {};
 
@@ -136,20 +146,20 @@ export function validateL4EventsCross(
     // 2) callQuery/query は data.queries のキーを参照
     // 3) callMutation/mutation は data.mutations のキーを参照
     for (const [eventKey, ev] of Object.entries(events)) {
-      if (!ev || typeof ev !== 'object') continue;
+      if (!ev || typeof ev !== "object") continue;
 
       const type = ev.type;
 
-      if (type === 'callQuery') {
+      if (type === "callQuery") {
         const q = ev.query;
-        if (typeof q !== 'string' || q.length === 0 || !d.queries.has(q)) {
+        if (typeof q !== "string" || q.length === 0 || !d.queries.has(q)) {
           warnings.push(l4UnknownQuery(String(q), eventKey, screenId));
         }
       }
 
-      if (type === 'callMutation') {
+      if (type === "callMutation") {
         const m = ev.mutation;
-        if (typeof m !== 'string' || m.length === 0 || !d.mutations.has(m)) {
+        if (typeof m !== "string" || m.length === 0 || !d.mutations.has(m)) {
           warnings.push(l4UnknownMutation(String(m), eventKey, screenId));
         }
       }

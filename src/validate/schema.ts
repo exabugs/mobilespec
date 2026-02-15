@@ -1,11 +1,13 @@
-import fs from 'fs';
-import { createRequire } from 'node:module';
-import type { YamlFile } from './io.js';
-import type { Diagnostic } from '../types/diagnostic.js';
-import { schemaNotFound, schemaError } from './diagnostics.js';
+import fs from "fs";
+import { createRequire } from "node:module";
+import type { YamlFile } from "./io.js";
+import type { Diagnostic } from "../types/diagnostic.js";
+import { schemaNotFound, schemaError } from "./diagnostics.js";
 
 const require = createRequire(import.meta.url);
-const AjvClass = (require('ajv/dist/2020') as { default?: unknown }).default ?? require('ajv/dist/2020');
+const AjvClass =
+  (require("ajv/dist/2020") as { default?: unknown }).default ??
+  require("ajv/dist/2020");
 
 type AjvInstance = {
   compile: (schema: Record<string, unknown>) => {
@@ -21,7 +23,7 @@ type AjvInstance = {
 export function validateSchema(
   files: YamlFile[],
   schemaPath: string,
-  label: 'L2' | 'L3' | 'L4',
+  label: "L2" | "L3" | "L4",
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
@@ -30,10 +32,16 @@ export function validateSchema(
     return diagnostics;
   }
 
-  const schemaData = JSON.parse(fs.readFileSync(schemaPath, 'utf-8')) as Record<string, unknown>;
-  const ajv = new (AjvClass as new (options: { strict: boolean; allErrors: boolean }) => AjvInstance)({ 
-    strict: false, 
-    allErrors: true 
+  const schemaData = JSON.parse(fs.readFileSync(schemaPath, "utf-8")) as Record<
+    string,
+    unknown
+  >;
+  const ajv = new (AjvClass as new (options: {
+    strict: boolean;
+    allErrors: boolean;
+  }) => AjvInstance)({
+    strict: false,
+    allErrors: true,
   });
   const validate = ajv.compile(schemaData);
 
@@ -41,8 +49,8 @@ export function validateSchema(
     const valid = validate(file.data);
     if (!valid && validate.errors) {
       for (const err of validate.errors) {
-        const p = err.instancePath || '/';
-        const message = err.message || 'unknown error';
+        const p = err.instancePath || "/";
+        const message = err.message || "unknown error";
         diagnostics.push(schemaError(label, file.path, p, message));
       }
     }
