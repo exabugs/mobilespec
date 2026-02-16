@@ -6,15 +6,13 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { compileSchemaFromDir } from './lib/ajv.js';
-import type { Diagnostic, DiagnosticLevel, HasDiagnostics } from './types/diagnostic.js';
+import { formatUnused } from './lib/formatUnused.js';
+import type { Diagnostic, HasDiagnostics } from './types/diagnostic.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
   schemaDir: string;
   openapiPath: string;
-
-  // ★変更: boolean → level/off
-  warnUnusedOperationIdLevel: DiagnosticLevel | 'off';
   checkSelectRoot: boolean;
 };
 
@@ -162,6 +160,7 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
   duplicates: Map<string, string[]>;
   missing: string[];
   rootKeysByOpId: Map<string, ResponseRootKeys>;
+  occurrences: Map<string, string[]>; // operationId -> ["GET /path", ...]
 } {
   const opIds = new Set<string>();
   const occurrences = new Map<string, string[]>();
@@ -205,7 +204,7 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
     if (where.length > 1) duplicates.set(id, where);
   }
 
-  return { opIds, duplicates, missing, rootKeysByOpId };
+  return { opIds, duplicates, missing, rootKeysByOpId, occurrences };
 }
 
 // ------------------------------------
@@ -339,9 +338,8 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     return asResult(diagnostics);
   }
 
-  const { opIds, duplicates, missing, rootKeysByOpId } = collectOperationIdsFromOpenApi(
-    openapiParsed.data
-  );
+  const { opIds, duplicates, missing, rootKeysByOpId, occurrences } =
+    collectOperationIdsFromOpenApi(openapiParsed.data);
 
   // ---- OpenAPI quality ----
   if (missing.length) {
@@ -374,9 +372,10 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
   diagnostics.push(...l4Errors);
 
   if (l4Files.length === 0) {
+    // 状態可視化として info（error ではない）
     diagnostics.push({
       code: 'L4_NO_FILES',
-      level: 'warning',
+      level: 'info',
       message: 'L4.state が無いため、OpenAPI との突合をスキップしました',
     });
     return asResult(diagnostics);
@@ -408,14 +407,14 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
       if (!info) {
         diagnostics.push({
           code: 'OPENAPI_RESPONSE_SCHEMA_UNRESOLVED',
-          level: 'warning',
+          level: 'info',
           message: `OpenAPI response schema を取得できず selectRoot を検証できません: operationId=${r.operationId}`,
           meta: { operationId: r.operationId, screenId: r.screenId, kind: r.kind, name: r.name },
         });
       } else if (info.kind === 'unresolved') {
         diagnostics.push({
           code: 'OPENAPI_RESPONSE_SCHEMA_UNRESOLVED',
-          level: 'warning',
+          level: 'info',
           message: `OpenAPI response schema を解決できず selectRoot を検証できません: operationId=${r.operationId} reason=${info.reason}`,
           meta: {
             operationId: r.operationId,
@@ -429,7 +428,7 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
         if (!info.keys.has(r.selectRoot)) {
           diagnostics.push({
             code: 'L4_INVALID_SELECT_ROOT',
-            level: 'warning',
+            level: 'info',
             message: `L4 selectRoot が OpenAPI レスポンスのrootに存在しません: operationId=${r.operationId} selectRoot=${r.selectRoot}`,
             meta: {
               operationId: r.operationId,
@@ -445,18 +444,25 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     }
   }
 
-  // ---- OpenAPI -> L4 ----
-  if (opts.warnUnusedOperationIdLevel !== 'off') {
-    const used = new Set(refs.map((r) => r.operationId));
-    const unused = [...opIds].filter((id) => !used.has(id));
-    if (unused.length) {
-      diagnostics.push({
-        code: 'L4_UNUSED_OPERATION_ID',
-        level: opts.warnUnusedOperationIdLevel,
-        message: `OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`,
-        meta: { operationIds: unused },
-      });
-    }
+  // ---- OpenAPI -> L4 (unused: always info) ----
+  const used = new Set(refs.map((r) => r.operationId));
+  const unused = [...opIds].filter((id) => !used.has(id));
+
+  if (unused.length) {
+    const message = formatUnused(
+      'OpenAPI operationId が L4 から未参照',
+      unused.map((id) => ({
+        key: id,
+        labels: occurrences.get(id) ?? [],
+      }))
+    );
+
+    diagnostics.push({
+      code: 'L4_UNUSED_OPERATION_ID',
+      level: 'info',
+      message,
+      meta: { operationIds: unused },
+    });
   }
 
   return asResult(diagnostics);

@@ -1,4 +1,15 @@
 #!/usr/bin/env node
+
+/**
+ * CLI Entry Point for mobilespec (SDD)
+ *
+ * Usage:
+ *   mobilespec validate [--specs-dir <path>] [--schema-dir <path>]
+ *   mobilespec mermaid  [--specs-dir <path>] [--schema-dir <path>]
+ *   mobilespec i18n     [--specs-dir <path>] [--schema-dir <path>]
+ *   mobilespec check    [--specs-dir <path>] [--schema-dir <path>]
+ *   mobilespec openapi-check [--openapi <path>] [--specs-dir <path>] [--schema-dir <path>]
+ */
 import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,8 +17,8 @@ import { fileURLToPath } from 'url';
 import { generateI18n } from '../generateI18n.js';
 import { generateMermaid } from '../generateMermaid.js';
 import { openapiCheck } from '../openapiCheck.js';
-import { errorsOf, infosOf, warningsOf } from '../types/diagnostic.js';
-import type { DiagnosticLevel, HasDiagnostics } from '../types/diagnostic.js';
+import { errorsOf, infosOf } from '../types/diagnostic.js';
+import type { HasDiagnostics } from '../types/diagnostic.js';
 import { loadConfig } from '../validate/config.js';
 import { validate } from '../validate/index.js';
 
@@ -19,11 +30,7 @@ type Args = {
   cmd: string;
   specsDir: string;
   schemaDir: string;
-  failOnWarnings: boolean;
   openapiPath?: string;
-
-  // openapi-check 専用（導入期用）
-  warnUnusedOperationIdLevel?: DiagnosticLevel | 'off';
   checkSelectRoot?: boolean;
 };
 
@@ -37,82 +44,41 @@ function has(args: string[], key: string) {
   return args.includes(key);
 }
 
-function parseLevelOrOff(s: string | undefined): DiagnosticLevel | 'off' | undefined {
-  if (!s) return undefined;
-  const v = s.trim().toLowerCase();
-  if (v === 'off') return 'off';
-  if (v === 'info' || v === 'warning' || v === 'error') return v;
-  return undefined;
-}
-
 function parse(): Args {
   const args = process.argv.slice(2);
   const cmd = args[0] ?? 'check';
   const specsDir = getArg(args, '--specs-dir') ?? process.cwd();
   const schemaDir = getArg(args, '--schema-dir') ?? DEFAULT_SCHEMA_DIR;
 
-  // デフォルトは「warningで落とす」＝strict寄り
-  let failOnWarnings = true;
-  if (has(args, '--no-fail-on-warnings')) failOnWarnings = false;
-  if (has(args, '--fail-on-warnings')) failOnWarnings = true;
-
   const openapiPath = getArg(args, '--openapi');
-
-  // openapi-check のオプション
-  // 互換:
-  // - --warn-unused-operation-id            => 'warning'
-  // - --warn-unused-operation-id info       => 'info'
-  // - --warn-unused-operation-id off        => 'off'
-  const warnUnusedFlag = has(args, '--warn-unused-operation-id');
-  const warnUnusedArg = getArg(args, '--warn-unused-operation-id');
-  const warnUnusedOperationIdLevel =
-    parseLevelOrOff(warnUnusedArg) ?? (warnUnusedFlag ? 'warning' : undefined);
-
   const checkSelectRoot = has(args, '--check-select-root');
 
-  return {
-    cmd,
-    specsDir,
-    schemaDir,
-    failOnWarnings,
-    openapiPath,
-    warnUnusedOperationIdLevel,
-    checkSelectRoot,
-  };
+  return { cmd, specsDir, schemaDir, openapiPath, checkSelectRoot };
 }
 
 /**
- * Print errors/warnings and return exit code.
+ * Print diagnostics and return exit code.
  * - errors > 0 => 1
- * - warnings > 0 and failOnWarnings => 1
  * - otherwise => 0
+ *
+ * Policy:
+ * - info is always printed (progress indicator)
+ * - CI/CD checks only exit code (error-only)
  */
-function reportAndCode(result: HasDiagnostics, failOnWarnings: boolean): number {
+function reportAndCode(result: HasDiagnostics): number {
   const errors = errorsOf(result);
-  const warnings = warningsOf(result);
   const infos = infosOf(result);
 
-  if (errors.length) {
-    for (const e of errors) console.error(`❌ ${e.message}`);
-    return 1;
-  }
+  for (const e of errors) console.error(`❌ ${e.message}`);
+  for (const i of infos) console.log(`ℹ️ ${i.message}`);
 
-  if (warnings.length) {
-    for (const w of warnings) console.warn(`⚠️ ${w.message}`);
-    if (failOnWarnings) return 1;
-  }
-
-  if (infos.length) {
-    for (const i of infos) console.log(`ℹ️ ${i.message}`);
-  }
-
-  return 0;
+  return errors.length > 0 ? 1 : 0;
 }
 
 /**
  * Resolve openapi path:
  * - If absolute => keep
- * - If relative => resolve from specsDir (same rule as validate/index.ts)
+ * - If relative => resolve from specsDir
  */
 function resolveOpenapiPath(specsDir: string, raw: string): string {
   return path.isAbsolute(raw) ? raw : path.resolve(specsDir, raw);
@@ -124,7 +90,7 @@ async function main() {
   switch (a.cmd) {
     case 'validate': {
       const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      const code = reportAndCode(r, a.failOnWarnings);
+      const code = reportAndCode(r);
       if (code === 0) console.log('✅ validate OK');
       process.exit(code);
     }
@@ -143,7 +109,7 @@ async function main() {
 
     case 'check': {
       const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      const code = reportAndCode(r, a.failOnWarnings);
+      const code = reportAndCode(r);
       if (code !== 0) process.exit(code);
 
       await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
@@ -153,6 +119,7 @@ async function main() {
     }
 
     case 'openapi-check': {
+      // openapi-check は単体検証。--openapi が無ければ config.openapi.path を使う
       const cfg = loadConfig(a.specsDir);
       const raw =
         (typeof a.openapiPath === 'string' && a.openapiPath.trim() !== ''
@@ -174,19 +141,14 @@ async function main() {
         process.exit(1);
       }
 
-      // デフォルトは導入期向け（unused/selectRoot は off）
-      const warnUnusedOperationIdLevel = a.warnUnusedOperationIdLevel ?? 'off';
-      const checkSelectRoot = a.checkSelectRoot ?? false;
-
       const r = await openapiCheck({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
         openapiPath: resolved,
-        warnUnusedOperationIdLevel,
-        checkSelectRoot,
+        checkSelectRoot: a.checkSelectRoot ?? false,
       });
 
-      const code = reportAndCode(r, a.failOnWarnings);
+      const code = reportAndCode(r);
       if (code === 0) console.log('✅ openapi-check OK');
       process.exit(code);
     }

@@ -1,4 +1,5 @@
-import type { Diagnostic, DiagnosticLevel } from '../types/diagnostic.js';
+// src/validate/types.ts
+import type { Diagnostic } from '../types/diagnostic.js';
 
 /* ================================
  * Types
@@ -11,7 +12,6 @@ export type MobileSpecConfig = {
   };
 
   i18n?: {
-    // 例: ["ja", "en", "zh-Hans", "ko"]
     locales?: string[];
   };
 
@@ -20,23 +20,7 @@ export type MobileSpecConfig = {
   };
 
   openapi?: {
-    // 例: "specs/openapi.yaml" など（specsDir からの相対でもOKにする運用が多い）
     path: string;
-
-    /**
-     * 導入期: 未使用 operationId をどのレベルで出すか
-     * - 'off'     : 出さない
-     * - 'info'    : 情報（--fail-on-warnings でも落ちない）
-     * - 'warning' : 警告（--fail-on-warnings で落ちる）
-     * - 'error'   : エラー
-     *
-     * 後方互換:
-     * - true  => 'warning'
-     * - false => 'off'
-     */
-    warnUnusedOperationId?: DiagnosticLevel | 'off' | boolean;
-
-    // selectRoot をチェックするか（導入期は false でもOK）
     checkSelectRoot?: boolean;
   };
 };
@@ -71,6 +55,5 @@ export type ValidationResult = {
   transitions: Transition[];
   uiActions: UIAction[];
   stateScreens: Set<string>;
-  /** 構造化診断情報 */
   diagnostics: Diagnostic[];
 };
