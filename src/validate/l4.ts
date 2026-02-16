@@ -1,6 +1,5 @@
-// l4.ts
+// src/validate/l4.ts
 import type { Diagnostic } from '../types/diagnostic.js';
-import { l2TransitionNotInL4, l4UnknownMutation, l4UnknownQuery } from './diagnostics.js';
 import type { YamlFile } from './io.js';
 import { displayId, screenKey } from './keys.js';
 import type { Screen, Transition } from './types.js';
@@ -125,29 +124,37 @@ export function collectL4Details(stateFiles: YamlFile[]): Map<string, L4Details>
 }
 
 /* ================================
- * Validate L4.events Cross (WARNING)
+ * Validate L4.events Cross
+ *
+ * Policy:
+ * - Missing event handlers / stale event keys are "state" => info
+ * - callQuery/callMutation with unknown query/mutation is "implementation impossible" => error
+ * - Output is aggregated (multi-line) for readability
  * ================================ */
+
 export function validateL4EventsCross(
   l4Details: Map<string, L4Details>,
   transitions: Transition[],
-  l2Screens: Map<string, Screen>
+  _l2Screens: Map<string, Screen>
 ): Diagnostic[] {
-  const warnings: Diagnostic[] = [];
+  const diagnostics: Diagnostic[] = [];
 
-  // screenKey -> transitionIds（context込みで分離）
+  // screenKey -> transitionIds
   const transitionIdsByScreenKey = new Map<string, Set<string>>();
   for (const t of transitions) {
     if (!t.label) continue;
-
-    // transitions は fromKey を持っている前提（screenKey）
     const fromKey = t.fromKey;
-    const from = l2Screens.get(fromKey);
-    if (!from) continue;
 
     const set = transitionIdsByScreenKey.get(fromKey) ?? new Set<string>();
     set.add(t.label);
     transitionIdsByScreenKey.set(fromKey, set);
   }
+
+  // Aggregation buckets
+  const missingHandlersByScreen = new Map<string, string[]>(); // L2 has id but L4.events missing
+  const staleEventKeysByScreen = new Map<string, string[]>(); // L4.events has key but L2 missing
+  const unknownQueryByScreen = new Map<string, { eventKey: string; query: string }[]>();
+  const unknownMutationByScreen = new Map<string, { eventKey: string; mutation: string }[]>();
 
   for (const [sk, d] of l4Details.entries()) {
     const events = d.events ?? {};
@@ -156,28 +163,25 @@ export function validateL4EventsCross(
     const eventKeys = new Set(Object.keys(events));
     const screenDisp = displayId(d.screenId, d.context);
 
-    // (1) L2 にある transitionId が L4.events に無い
+    // (1) L2 transitionId exists but no L4.events handler
     for (const transitionId of l2Ids) {
       if (!eventKeys.has(transitionId)) {
-        // 既存 helper の第2引数は screenId なので、表示用に加工して渡す（互換維持）
-        warnings.push(l2TransitionNotInL4(transitionId, screenDisp));
+        const arr = missingHandlersByScreen.get(screenDisp) ?? [];
+        arr.push(transitionId);
+        missingHandlersByScreen.set(screenDisp, arr);
       }
     }
 
-    // (2) L4.events にある eventKey が L2 に無い
+    // (2) L4.events key exists but no L2 transition id
     for (const eventKey of eventKeys) {
       if (!l2Ids.has(eventKey)) {
-        warnings.push({
-          code: 'L3_UNKNOWN_TRANSITION',
-          level: 'warning',
-          message: `L4-L2不整合: L4.events["${eventKey}"] に対応する L2 transition id が存在しません (screen: ${screenDisp})`,
-          meta: { eventKey, screenId: d.screenId, context: d.context, screenKey: sk },
-        });
+        const arr = staleEventKeysByScreen.get(screenDisp) ?? [];
+        arr.push(eventKey);
+        staleEventKeysByScreen.set(screenDisp, arr);
       }
     }
 
-    // (3) callQuery/query は data.queries のキーを参照
-    // (4) callMutation/mutation は data.mutations のキーを参照
+    // (3)(4) callQuery / callMutation must reference existing keys
     for (const [eventKey, ev] of Object.entries(events)) {
       if (!ev || typeof ev !== 'object') continue;
 
@@ -185,19 +189,107 @@ export function validateL4EventsCross(
 
       if (type === 'callQuery') {
         const q = (ev as Record<string, unknown>).query;
-        if (typeof q !== 'string' || q.length === 0 || !d.queries.has(q)) {
-          warnings.push(l4UnknownQuery(String(q), eventKey, screenDisp));
+        const qStr = typeof q === 'string' ? q : String(q);
+        if (!qStr || !d.queries.has(qStr)) {
+          const arr = unknownQueryByScreen.get(screenDisp) ?? [];
+          arr.push({ eventKey, query: qStr });
+          unknownQueryByScreen.set(screenDisp, arr);
         }
       }
 
       if (type === 'callMutation') {
         const m = (ev as Record<string, unknown>).mutation;
-        if (typeof m !== 'string' || m.length === 0 || !d.mutations.has(m)) {
-          warnings.push(l4UnknownMutation(String(m), eventKey, screenDisp));
+        const mStr = typeof m === 'string' ? m : String(m);
+        if (!mStr || !d.mutations.has(mStr)) {
+          const arr = unknownMutationByScreen.get(screenDisp) ?? [];
+          arr.push({ eventKey, mutation: mStr });
+          unknownMutationByScreen.set(screenDisp, arr);
         }
       }
     }
   }
 
-  return warnings;
+  // Emit info: missing handlers
+  if (missingHandlersByScreen.size) {
+    const screens = [...missingHandlersByScreen.keys()].sort((a, b) => a.localeCompare(b));
+    const lines: string[] = [];
+    for (const s of screens) {
+      const ids = (missingHandlersByScreen.get(s) ?? []).slice().sort((a, b) => a.localeCompare(b));
+      lines.push(`  ${s}`);
+      for (const id of ids) lines.push(`    - ${id}`);
+    }
+    diagnostics.push({
+      code: 'L2_TRANSITION_NOT_IN_L4',
+      level: 'info',
+      message: `L2 transition が L4.events に未定義（状態）:\n${lines.join('\n')}`,
+      meta: {
+        screens,
+        count: [...missingHandlersByScreen.values()].reduce((a, b) => a + b.length, 0),
+      },
+    });
+  }
+
+  // Emit info: stale event keys
+  if (staleEventKeysByScreen.size) {
+    const screens = [...staleEventKeysByScreen.keys()].sort((a, b) => a.localeCompare(b));
+    const lines: string[] = [];
+    for (const s of screens) {
+      const keys = (staleEventKeysByScreen.get(s) ?? []).slice().sort((a, b) => a.localeCompare(b));
+      lines.push(`  ${s}`);
+      for (const k of keys) lines.push(`    - ${k}`);
+    }
+    diagnostics.push({
+      code: 'L3_UNKNOWN_TRANSITION',
+      level: 'info',
+      message: `L4.events に存在するが L2 に存在しない eventKey（状態）:\n${lines.join('\n')}`,
+      meta: {
+        screens,
+        count: [...staleEventKeysByScreen.values()].reduce((a, b) => a + b.length, 0),
+      },
+    });
+  }
+
+  // Emit error: unknown query references
+  if (unknownQueryByScreen.size) {
+    const screens = [...unknownQueryByScreen.keys()].sort((a, b) => a.localeCompare(b));
+    const lines: string[] = [];
+    for (const s of screens) {
+      const items = (unknownQueryByScreen.get(s) ?? []).slice().sort((a, b) => {
+        const ak = `${a.eventKey}:${a.query}`;
+        const bk = `${b.eventKey}:${b.query}`;
+        return ak.localeCompare(bk);
+      });
+      lines.push(`  ${s}`);
+      for (const it of items) lines.push(`    - ${it.eventKey}: query=${it.query}`);
+    }
+    diagnostics.push({
+      code: 'L4_UNKNOWN_QUERY',
+      level: 'error',
+      message: `L4.events(callQuery) が data.queries に存在しない query を参照（実装不能）:\n${lines.join('\n')}`,
+      meta: { screens },
+    });
+  }
+
+  // Emit error: unknown mutation references
+  if (unknownMutationByScreen.size) {
+    const screens = [...unknownMutationByScreen.keys()].sort((a, b) => a.localeCompare(b));
+    const lines: string[] = [];
+    for (const s of screens) {
+      const items = (unknownMutationByScreen.get(s) ?? []).slice().sort((a, b) => {
+        const ak = `${a.eventKey}:${a.mutation}`;
+        const bk = `${b.eventKey}:${b.mutation}`;
+        return ak.localeCompare(bk);
+      });
+      lines.push(`  ${s}`);
+      for (const it of items) lines.push(`    - ${it.eventKey}: mutation=${it.mutation}`);
+    }
+    diagnostics.push({
+      code: 'L4_UNKNOWN_MUTATION',
+      level: 'error',
+      message: `L4.events(callMutation) が data.mutations に存在しない mutation を参照（実装不能）:\n${lines.join('\n')}`,
+      meta: { screens },
+    });
+  }
+
+  return diagnostics;
 }

@@ -2,7 +2,6 @@
 import fs from 'node:fs';
 import path from 'path';
 
-import { formatUnused } from '../lib/formatUnused.js';
 import { openapiCheck } from '../openapiCheck.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
@@ -92,8 +91,7 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const l2Errors = l2Collected.value?.errors ?? [];
   const l2Fatal = l2Collected.diagnostics;
 
-  // ★ ここは “変換しない”
-  // l2.ts 側で error/info を決め打ちしている前提
+  // L2: policy is decided inside l2.ts (error/info)
   const l2TransitionDiagnostics = validateTransitions(screens, transitions);
 
   // -------------------------
@@ -104,35 +102,8 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const l3ScreenErrors = validateL3ScreensExistInL2(uiFiles, screens);
   const l3L2CrossErrors = validateL3L2Cross(uiActions, transitions);
 
-  // L2 transition unused (by L3) を 1 件に集約して info にする
-  // ※ validateL2TransitionsUsedByL3 の中身は既存を壊さないため “読み取り”だけ
-  const rawUnused = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
-  const unusedItems = rawUnused
-    .filter((d) => d.code === 'L2_TRANSITION_UNUSED')
-    .map((d) => {
-      const meta = (d.meta ?? {}) as Record<string, unknown>;
-      const fromKey = typeof meta.fromKey === 'string' ? meta.fromKey : undefined;
-      const toKey = typeof meta.toKey === 'string' ? meta.toKey : undefined;
-      const transitionId = typeof meta.transitionId === 'string' ? meta.transitionId : undefined;
-
-      const key = transitionId ?? (fromKey && toKey ? `${fromKey} -> ${toKey}` : d.message);
-
-      // L2 の場合は OpenAPI の path のような構造が無いので、
-      // 「FROM <fromKey>」という構造ラベルで十分（プロジェクト固有語彙ではない）
-      const labels = fromKey ? [`FROM ${fromKey}`] : undefined;
-
-      return { key, labels };
-    });
-
-  const l2UnusedDiagnostics: Diagnostic[] = [];
-  if (unusedItems.length) {
-    l2UnusedDiagnostics.push({
-      code: 'L2_TRANSITION_UNUSED',
-      level: 'info',
-      message: formatUnused('L2 未使用 transition', unusedItems),
-      meta: { count: unusedItems.length },
-    });
-  }
+  // L2 unused transitions (by L3) are already aggregated as info in l3.ts
+  const l2UnusedDiagnostics = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
 
   // -------------------------
   // L4
@@ -141,8 +112,8 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const l4L2Errors = validateL4L2Cross(stateScreens, screens);
 
   const l4Details = collectL4Details(stateFiles);
+  // L4: policy is decided inside l4.ts (error/info)
   const l4EventDiagnostics = validateL4EventsCross(l4Details, transitions, screens);
-  // ※ここも “変換しない”。l4.ts 側で error/info を決める（今後決め打ちにする）
 
   // -------------------------
   // i18n
@@ -195,12 +166,12 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
     ...l2Fatal,
     ...l2Errors,
     ...l2TransitionDiagnostics,
-    ...l2UnusedDiagnostics,
 
-    // L3
+    // L3 (includes L2 unused by L3)
     ...l3SchemaDiagnostics,
     ...l3ScreenErrors,
     ...l3L2CrossErrors,
+    ...l2UnusedDiagnostics,
 
     // L4
     ...l4SchemaDiagnostics,

@@ -2,8 +2,12 @@
 
 /**
  * 診断レベル
+ *
+ * Policy (fixed):
+ * - error: implementation impossible (CI/CD should fail)
+ * - info : state / progress visibility (always on)
  */
-export type DiagnosticLevel = 'error' | 'warning' | 'info';
+export type DiagnosticLevel = 'error' | 'info';
 
 /**
  * 診断コード一覧
@@ -70,12 +74,16 @@ export function errorsOf(r: HasDiagnostics): Diagnostic[] {
   return r.diagnostics.filter((d) => d.level === 'error');
 }
 
-export function warningsOf(r: HasDiagnostics): Diagnostic[] {
-  return r.diagnostics.filter((d) => d.level === 'warning');
-}
-
 export function infosOf(r: HasDiagnostics): Diagnostic[] {
   return r.diagnostics.filter((d) => d.level === 'info');
+}
+
+/**
+ * Backward compatible helper.
+ * - warnings are not used by policy, so this always returns [].
+ */
+export function warningsOf(_: HasDiagnostics): Diagnostic[] {
+  return [];
 }
 
 export function findByCode<T extends HasDiagnostics>(

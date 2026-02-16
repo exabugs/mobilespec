@@ -3,6 +3,10 @@ import type { Diagnostic } from '../types/diagnostic.js';
 
 /**
  * 診断生成ヘルパー関数
+ *
+ * Policy (fixed):
+ * - implementation impossible => error
+ * - state / progress visibility (unused, pending wiring, etc.) => info
  */
 
 type SchemaLabel = 'L2' | 'L3' | 'L4';
@@ -114,24 +118,36 @@ export function l3ActionNotInL2(
   };
 }
 
+/**
+ * L2 transition exists but L4.events has no handler.
+ * This is "state" (not necessarily impossible), so info.
+ */
 export function l2TransitionNotInL4(transitionId: string, screenId: string): Diagnostic {
   return {
     code: 'L2_TRANSITION_NOT_IN_L4',
-    level: 'warning',
+    level: 'info',
     message: `L2-L4不整合: transition="${transitionId}" が L4.events に存在しません (screen: ${screenId})`,
     meta: { transitionId, screenId },
   };
 }
 
+/**
+ * callQuery references a queryKey that does not exist in L4.data.queries.
+ * This is implementation impossible => error.
+ */
 export function l4UnknownQuery(queryKey: string, eventKey: string, screenId: string): Diagnostic {
   return {
     code: 'L4_UNKNOWN_QUERY',
-    level: 'warning',
+    level: 'error',
     message: `L4内部不整合: callQuery.query="${queryKey}" が L4.data.queries に存在しません (event: ${eventKey}, screen: ${screenId})`,
     meta: { queryKey, eventKey, screenId },
   };
 }
 
+/**
+ * callMutation references a mutationKey that does not exist in L4.data.mutations.
+ * This is implementation impossible => error.
+ */
 export function l4UnknownMutation(
   mutationKey: string,
   eventKey: string,
@@ -139,12 +155,15 @@ export function l4UnknownMutation(
 ): Diagnostic {
   return {
     code: 'L4_UNKNOWN_MUTATION',
-    level: 'warning',
+    level: 'error',
     message: `L4内部不整合: callMutation.mutation="${mutationKey}" が L4.data.mutations に存在しません (event: ${eventKey}, screen: ${screenId})`,
     meta: { mutationKey, eventKey, screenId },
   };
 }
 
+/**
+ * L2 transition is unused from L3. This is "state" => info.
+ */
 export function l2TransitionUnused(
   transitionId: string,
   screenId?: string,
@@ -153,7 +172,7 @@ export function l2TransitionUnused(
   const sk = screenId ? (context ? `${screenId}[${context}]` : screenId) : '(unknown)';
   return {
     code: 'L2_TRANSITION_UNUSED',
-    level: 'warning',
+    level: 'info',
     message: `未使用: L2 transition="${transitionId}" が L3 から参照されていません (from screen: ${sk})`,
     meta: { transitionId, screenId, context },
   };
@@ -168,10 +187,13 @@ export function i18nMissingKey(locale: string, key: string): Diagnostic {
   };
 }
 
+/**
+ * Untranslated is "state" => info.
+ */
 export function i18nUntranslated(locale: string, key: string): Diagnostic {
   return {
     code: 'I18N_UNTRANSLATED',
-    level: 'warning',
+    level: 'info',
     message: `未翻訳: locale="${locale}" key="${key}" が空です`,
     meta: { locale, key },
   };

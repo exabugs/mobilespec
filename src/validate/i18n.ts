@@ -20,7 +20,6 @@ function collectExpectedI18nKeys(l2Screens: Map<string, Screen>, uiFiles: YamlFi
 
   // L2: screen title
   for (const s of l2Screens.values()) {
-    // L2 Screen は name が必須前提
     const k = `${screenPrefix(s.id, s.context)}.title`;
     keys.add(k);
   }
@@ -40,7 +39,7 @@ function collectExpectedI18nKeys(l2Screens: Map<string, Screen>, uiFiles: YamlFi
     const layout = screen.layout;
     if (!isObj(layout)) continue;
 
-    // root(layout) は id 不要（あなたの修正方針）
+    // root(layout) は id 不要（方針）
     const stack: Array<{ node: Record<string, unknown> }> = [{ node: layout }];
 
     while (stack.length > 0) {
@@ -106,17 +105,24 @@ export function validateI18n(
       : listLocaleFiles(i18nDir);
 
   if (locales.length === 0) {
-    // i18n 未導入なら何もしない（必要なら error にしてもOK）
+    // i18n 未導入なら何もしない（構造が無い状態として許容）
     return diagnostics;
   }
 
-  // ja は必須扱いにしておく（基準言語）
+  // 基準言語: ja（存在しないなら実装不能＝error。ただし他の検査は続ける）
   if (!locales.includes('ja')) {
-    diagnostics.push(i18nMissingKey('ja', '(locale file missing: i18n/ja.json)'));
-    return diagnostics;
+    diagnostics.push({
+      code: 'I18N_MISSING_KEY',
+      level: 'error',
+      message: `i18n不整合: locales に "ja" が含まれていません（基準言語が必要）`,
+      meta: {
+        locales,
+        hint: 'Add "ja" to mobilespec.config.yml i18n.locales and create i18n/ja.json',
+      },
+    });
   }
 
-  // 各 locale の辞書を読む
+  // 各 locale の辞書を読む（存在しないファイルは空辞書扱い→ key 欠落として error になる）
   const dictByLocale = new Map<string, Record<string, string>>();
   for (const loc of locales) {
     const p = path.join(i18nDir, `${loc}.json`);
@@ -130,6 +136,7 @@ export function validateI18n(
         diagnostics.push(i18nMissingKey(loc, k));
         continue;
       }
+      // 未翻訳は状態(info)。ja は基準なので未翻訳判定しない
       if (loc !== 'ja' && dict[k] === '') {
         diagnostics.push(i18nUntranslated(loc, k));
       }
