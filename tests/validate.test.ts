@@ -11,17 +11,17 @@ import { writeOkSpec } from './helpers/okSpec.js';
 const schemaDir = path.resolve(process.cwd(), 'schema');
 
 describe('mobilespec validate (current behavior)', () => {
-  it('ok: errors=[], warnings=[]', () => {
+  it('ok: errors=[], warnings=[]', async () => {
     const specsDir = mkTempDir();
     writeOkSpec(specsDir);
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     expect(errorsOf(r)).toEqual([]);
     expect(warningsOf(r)).toEqual([]);
   });
 
-  it('ng: L3 action typo => L3-L2 mismatch goes to errors', () => {
+  it('ng: L3 action typo => L3-L2 mismatch goes to errors', async () => {
     const specsDir = mkTempDir();
     const { l3 } = writeOkSpec(specsDir);
 
@@ -41,7 +41,7 @@ screen:
 `
     );
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     const errors = errorsOf(r);
     expect(errors.length).toBeGreaterThan(0);
@@ -51,7 +51,7 @@ screen:
     expect(error?.meta?.action).toBe('open_tasks_typo');
   });
 
-  it('ng: L3 screen missing in L2 => goes to errors (L3_UNKNOWN_SCREEN)', () => {
+  it('ng: L3 screen missing in L2 => goes to errors (L3_UNKNOWN_SCREEN)', async () => {
     const specsDir = mkTempDir();
     const { l3 } = writeOkSpec(specsDir);
 
@@ -71,14 +71,14 @@ screen:
 `
     );
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     const error = findByCode(r, 'L3_UNKNOWN_SCREEN');
     expect(error).toBeDefined();
     expect(error?.meta?.screenId).toBe('home_typo');
   });
 
-  it('ng: L2 transition missing in L4.events => goes to warnings (L2_TRANSITION_NOT_IN_L4)', () => {
+  it('ng: L2 transition missing in L4.events => goes to warnings (L2_TRANSITION_NOT_IN_L4)', async () => {
     const specsDir = mkTempDir();
     const { l4 } = writeOkSpec(specsDir);
 
@@ -95,13 +95,13 @@ screen:
 `
     );
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     const warn = findByCode(r, 'L2_TRANSITION_NOT_IN_L4');
     expect(warn).toBeDefined();
   });
 
-  it('ng: unused L2 transition => goes to warnings (L2_TRANSITION_UNUSED)', () => {
+  it('ng: unused L2 transition => goes to warnings (L2_TRANSITION_UNUSED)', async () => {
     const specsDir = mkTempDir();
     const { l2, l4 } = writeOkSpec(specsDir);
 
@@ -140,7 +140,7 @@ screen:
 `
     );
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     // error は出ない（warning のみ）
     expect(errorsOf(r)).toEqual([]);
@@ -150,7 +150,7 @@ screen:
     expect(warn?.meta?.transitionId).toBe('unused_transition');
   });
 
-  it('ng: i18n untranslated => goes to warnings (I18N_UNTRANSLATED)', () => {
+  it('ng: i18n untranslated => goes to warnings (I18N_UNTRANSLATED)', async () => {
     const specsDir = mkTempDir();
     writeOkSpec(specsDir);
 
@@ -178,7 +178,7 @@ screen:
       ) + '\n'
     );
 
-    const r = validate({ specsDir, schemaDir });
+    const r = await validate({ specsDir, schemaDir });
 
     const warn = findByCode(r, 'I18N_UNTRANSLATED');
     expect(warn).toBeDefined();

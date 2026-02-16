@@ -6,7 +6,7 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { compileSchemaFromDir } from './lib/ajv.js';
-import type { Diagnostic, DiagnosticResult } from './types/diagnostic.js';
+import type { Diagnostic, HasDiagnostics } from './types/diagnostic.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
@@ -18,18 +18,10 @@ export type OpenapiCheckOptions = {
   checkSelectRoot: boolean;
 };
 
-export type OpenapiCheckResult = DiagnosticResult;
+export type OpenapiCheckResult = HasDiagnostics;
 
 function asResult(diagnostics: Diagnostic[]): OpenapiCheckResult {
-  return {
-    diagnostics,
-    get errors() {
-      return diagnostics.filter((d) => d.level === 'error');
-    },
-    get warnings() {
-      return diagnostics.filter((d) => d.level === 'warning');
-    },
-  };
+  return { diagnostics };
 }
 
 // ------------------------------------

@@ -16,6 +16,7 @@ import { mkSpecDir, writeFile } from './mkSpec.js';
  */
 export function writeOkSpec(specsDir: string) {
   const { l2, l3, l4 } = mkSpecDir(specsDir);
+  const i18n = path.join(specsDir, 'i18n');
 
   // L2
   writeFile(
@@ -72,6 +73,32 @@ screen:
       type: navigate
       targetScreenId: tasks
 `
+  );
+
+  writeFile(
+    path.join(i18n, 'ja.json'),
+    JSON.stringify(
+      {
+        'app.screen.home.title': 'ホーム',
+        'app.screen.tasks.title': 'タスク',
+        'app.screen.home.component.action_open_tasks.label': '未処理タスク',
+      },
+      null,
+      2
+    ) + '\n'
+  );
+
+  writeFile(
+    path.join(i18n, 'en.json'),
+    JSON.stringify(
+      {
+        'app.screen.home.title': 'Home',
+        'app.screen.tasks.title': 'Tasks',
+        'app.screen.home.component.action_open_tasks.label': 'Open Tasks',
+      },
+      null,
+      2
+    ) + '\n'
   );
 
   return { l2, l3, l4 };

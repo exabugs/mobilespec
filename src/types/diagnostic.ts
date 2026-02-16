@@ -62,25 +62,25 @@ export type Diagnostic = {
   meta?: Record<string, unknown>;
 };
 
-export type DiagnosticResult = {
+export type HasDiagnostics = {
   diagnostics: Diagnostic[];
-  readonly errors: Diagnostic[];
-  readonly warnings: Diagnostic[];
-  readonly infos: Diagnostic[];
 };
 
-export function errorsOf(r: DiagnosticResult): Diagnostic[] {
-  return r.errors;
+export function errorsOf(r: HasDiagnostics): Diagnostic[] {
+  return r.diagnostics.filter((d) => d.level === 'error');
 }
 
-export function warningsOf(r: DiagnosticResult): Diagnostic[] {
-  return r.warnings;
+export function warningsOf(r: HasDiagnostics): Diagnostic[] {
+  return r.diagnostics.filter((d) => d.level === 'warning');
 }
 
-export function infosOf(r: DiagnosticResult): Diagnostic[] {
-  return r.infos;
+export function infosOf(r: HasDiagnostics): Diagnostic[] {
+  return r.diagnostics.filter((d) => d.level === 'info');
 }
 
-export function findByCode(r: DiagnosticResult, code: DiagnosticCode): Diagnostic | undefined {
+export function findByCode<T extends HasDiagnostics>(
+  r: T,
+  code: DiagnosticCode
+): Diagnostic | undefined {
   return r.diagnostics.find((d) => d.code === code);
 }

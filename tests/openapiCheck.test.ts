@@ -27,6 +27,8 @@ async function run(ctx: Ctx) {
     specsDir: ctx.specsDir,
     schemaDir,
     openapiPath: ctx.openapiPath,
+    warnUnusedOperationId: true,
+    checkSelectRoot: false,
   });
 }
 

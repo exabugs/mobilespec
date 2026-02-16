@@ -1,4 +1,4 @@
-import type { Diagnostic, DiagnosticResult } from '../types/diagnostic.js';
+import type { Diagnostic } from '../types/diagnostic.js';
 
 /* ================================
  * Types
@@ -55,7 +55,7 @@ export type UIAction = {
   action: string;
 };
 
-export type ValidationResult = DiagnosticResult & {
+export type ValidationResult = {
   screens: Map<string, Screen>;
   config: MobileSpecConfig;
   transitions: Transition[];

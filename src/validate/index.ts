@@ -48,15 +48,6 @@ function asValidationResult(
     uiActions,
     stateScreens,
     diagnostics,
-    get errors() {
-      return diagnostics.filter((d) => d.level === 'error');
-    },
-    get warnings() {
-      return diagnostics.filter((d) => d.level === 'warning');
-    },
-    get infos() {
-      return diagnostics.filter((d) => d.level === 'info');
-    },
   };
 }
 
