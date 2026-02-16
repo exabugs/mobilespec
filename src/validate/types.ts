@@ -1,4 +1,4 @@
-import type { Diagnostic } from '../types/diagnostic.js';
+import type { Diagnostic, DiagnosticLevel } from '../types/diagnostic.js';
 
 /* ================================
  * Types
@@ -23,8 +23,18 @@ export type MobileSpecConfig = {
     // 例: "specs/openapi.yaml" など（specsDir からの相対でもOKにする運用が多い）
     path: string;
 
-    // 導入期: 未使用 operationId を warning にするか（openapiCheck の L4_UNUSED_OPERATION_ID）
-    warnUnusedOperationId?: boolean;
+    /**
+     * 導入期: 未使用 operationId をどのレベルで出すか
+     * - 'off'     : 出さない
+     * - 'info'    : 情報（--fail-on-warnings でも落ちない）
+     * - 'warning' : 警告（--fail-on-warnings で落ちる）
+     * - 'error'   : エラー
+     *
+     * 後方互換:
+     * - true  => 'warning'
+     * - false => 'off'
+     */
+    warnUnusedOperationId?: DiagnosticLevel | 'off' | boolean;
 
     // selectRoot をチェックするか（導入期は false でもOK）
     checkSelectRoot?: boolean;

@@ -6,15 +6,15 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { compileSchemaFromDir } from './lib/ajv.js';
-import type { Diagnostic, HasDiagnostics } from './types/diagnostic.js';
+import type { Diagnostic, DiagnosticLevel, HasDiagnostics } from './types/diagnostic.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
   schemaDir: string;
   openapiPath: string;
 
-  // ★追加（config から注入）
-  warnUnusedOperationId: boolean;
+  // ★変更: boolean → level/off
+  warnUnusedOperationIdLevel: DiagnosticLevel | 'off';
   checkSelectRoot: boolean;
 };
 
@@ -446,13 +446,13 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
   }
 
   // ---- OpenAPI -> L4 ----
-  if (opts.warnUnusedOperationId) {
+  if (opts.warnUnusedOperationIdLevel !== 'off') {
     const used = new Set(refs.map((r) => r.operationId));
     const unused = [...opIds].filter((id) => !used.has(id));
     if (unused.length) {
       diagnostics.push({
         code: 'L4_UNUSED_OPERATION_ID',
-        level: 'warning',
+        level: opts.warnUnusedOperationIdLevel,
         message: `OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`,
         meta: { operationIds: unused },
       });

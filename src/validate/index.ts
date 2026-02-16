@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'path';
 
 import { openapiCheck } from '../openapiCheck.js';
-import type { Diagnostic } from '../types/diagnostic.js';
+import type { Diagnostic, DiagnosticLevel } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
 import { validateI18n } from './i18n.js';
 import { loadYamlFiles } from './io.js';
@@ -49,6 +49,16 @@ function asValidationResult(
     stateScreens,
     diagnostics,
   };
+}
+
+function normalizeWarnUnusedOperationId(v: unknown): DiagnosticLevel | 'off' {
+  // config.ts で既に正規化済みの想定だが、ガードとして
+  if (v === 'off') return 'off';
+  if (v === 'info' || v === 'warning' || v === 'error') return v;
+  if (v === true) return 'warning';
+  if (v === false) return 'off';
+  // 導入期デフォルト
+  return 'info';
 }
 
 export async function validate(options: ValidateOptions): Promise<ValidationResult> {
@@ -128,14 +138,16 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
           meta: { path: resolvedOpenapiPath, raw: openapiPathRaw },
         });
       } else {
-        const warnUnusedOperationId = config.openapi?.warnUnusedOperationId !== false; // default true
+        const warnUnusedOperationIdLevel = normalizeWarnUnusedOperationId(
+          config.openapi?.warnUnusedOperationId
+        );
         const checkSelectRoot = config.openapi?.checkSelectRoot === true; // default false
 
         const r = await openapiCheck({
           specsDir: options.specsDir,
           schemaDir: options.schemaDir,
           openapiPath: resolvedOpenapiPath,
-          warnUnusedOperationId,
+          warnUnusedOperationIdLevel,
           checkSelectRoot,
         });
 
