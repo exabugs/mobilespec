@@ -3,7 +3,7 @@
 /**
  * 診断レベル
  */
-export type DiagnosticLevel = 'error' | 'warning';
+export type DiagnosticLevel = 'error' | 'warning' | 'info';
 
 /**
  * 診断コード一覧
@@ -64,10 +64,9 @@ export type Diagnostic = {
 
 export type DiagnosticResult = {
   diagnostics: Diagnostic[];
-  /** 互換性: エラーのみを抽出 */
-  get errors(): Diagnostic[];
-  /** 互換性: 警告のみを抽出 */
-  get warnings(): Diagnostic[];
+  readonly errors: Diagnostic[];
+  readonly warnings: Diagnostic[];
+  readonly infos: Diagnostic[];
 };
 
 export function errorsOf(r: DiagnosticResult): Diagnostic[] {
@@ -76,6 +75,10 @@ export function errorsOf(r: DiagnosticResult): Diagnostic[] {
 
 export function warningsOf(r: DiagnosticResult): Diagnostic[] {
   return r.warnings;
+}
+
+export function infosOf(r: DiagnosticResult): Diagnostic[] {
+  return r.infos;
 }
 
 export function findByCode(r: DiagnosticResult, code: DiagnosticCode): Diagnostic | undefined {

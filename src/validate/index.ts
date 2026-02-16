@@ -54,6 +54,9 @@ function asValidationResult(
     get warnings() {
       return diagnostics.filter((d) => d.level === 'warning');
     },
+    get infos() {
+      return diagnostics.filter((d) => d.level === 'info');
+    },
   };
 }
 

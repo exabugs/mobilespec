@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { generateI18n } from '../generateI18n.js';
 import { generateMermaid } from '../generateMermaid.js';
 import { openapiCheck } from '../openapiCheck.js';
+import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from '../validate/config.js';
 import { validate } from '../validate/index.js';
 
@@ -79,12 +80,10 @@ function parse(): Args {
  * - warnings > 0 and failOnWarnings => 1
  * - otherwise => 0
  */
-function reportAndCode(
-  result: { diagnostics: { level: 'error' | 'warning'; message: string }[] },
-  failOnWarnings: boolean
-): number {
+function reportAndCode(result: { diagnostics: Diagnostic[] }, failOnWarnings: boolean): number {
   const errors = result.diagnostics.filter((d) => d.level === 'error');
   const warnings = result.diagnostics.filter((d) => d.level === 'warning');
+  const infos = result.diagnostics.filter((d) => d.level === 'info');
 
   if (errors.length) {
     for (const e of errors) console.error(`❌ ${e.message}`);
@@ -94,6 +93,10 @@ function reportAndCode(
   if (warnings.length) {
     for (const w of warnings) console.warn(`⚠️ ${w.message}`);
     if (failOnWarnings) return 1;
+  }
+
+  if (infos.length) {
+    for (const i of infos) console.log(`ℹ️ ${i.message}`);
   }
 
   return 0;
