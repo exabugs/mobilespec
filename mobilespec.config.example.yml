@@ -1,25 +1,37 @@
 # mobilespec Configuration File
 # Place this file as `mobilespec.config.yml` in your specs directory
+#
+# Policy:
+# - This config describes "structure" only (SSOT inputs for generation/validation).
+# - No build/validation behavior flags are defined here.
 
 mermaid:
-  # グループの表示順序を定義
-  # 配列の順序から自動的にorder値が生成されます
-  # 未定義のグループは末尾に表示されます
+  # Group display order for diagrams (Mermaid).
+  # - Order is defined by the array sequence.
+  # - Groups not listed here are shown after listed groups.
   groupOrder:
-    - Home
-    - Task
-    - Venue
-    - Misc
+    - home
+    - task
+    - venue
+    - misc
 
-  # 画面IDの表示順序を定義（各グループ内での順序）
-  # 配列の順序から自動的にorder値が生成されます
-  # 未定義の画面は末尾に表示されます
-  screenOrder:
-    - screen_home
-    - screen_stamp_book
-    - screen_stamp_detail
-    - screen_task_list
-    - screen_task_detail
-    - screen_venue_list
-    - screen_venue_detail
-    - screen_settings
+  # Optional: screen ordering within groups (for diagram readability).
+  # - Order is defined by the array sequence.
+  # - Screens not listed here are shown after listed screens.
+  # - Use screen.id values from L2.
+  screenOrder: []
+
+i18n:
+  # Locales to validate / generate i18n resources.
+  # Example: ["ja", "en", "zh-Hans", "ko"]
+  locales:
+    - ja
+    - en
+    - zh-Hans
+    - ko
+
+openapi:
+  # OpenAPI spec path used for OpenAPI ↔ L4 validation.
+  # - Absolute path is allowed.
+  # - Relative path is resolved from the specs directory (where this config is placed).
+  path: ../../docs/specs/openapi.bundled.yaml
