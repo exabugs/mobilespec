@@ -24,16 +24,11 @@ import {
 import { validateSchema } from './schema.js';
 import type { ValidationResult } from './types.js';
 
-/* ================================
- * Main Validation Function
- * ================================ */
-
 export interface ValidateOptions {
   specsDir: string;
   schemaDir: string;
 }
 
-// diagnostics配列をValidationResultに変換
 function asValidationResult(
   screens: ValidationResult['screens'],
   config: ValidationResult['config'],
@@ -50,8 +45,7 @@ function safeRun<T>(
   onError: (e: unknown) => Diagnostic[]
 ): { value: T | null; diagnostics: Diagnostic[] } {
   try {
-    const v = fn();
-    return { value: v, diagnostics: [] };
+    return { value: fn(), diagnostics: [] };
   } catch (e) {
     return { value: null, diagnostics: onError(e) };
   }
@@ -69,15 +63,14 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const uiFiles = loadYamlFiles(UI_DIR, '.ui.yaml');
   const stateFiles = loadYamlFiles(STATE_DIR, '.state.yaml');
 
-  // 設定ファイル読み込み
   const config = loadConfig(options.specsDir);
 
   // -------------------------
   // Schema validation
   // -------------------------
-  const l2SchemaErrors = validateSchema(flowFiles, L2_SCHEMA_PATH, 'L2');
-  const l3SchemaErrors = validateSchema(uiFiles, L3_SCHEMA_PATH, 'L3');
-  const l4SchemaErrors = validateSchema(stateFiles, L4_SCHEMA_PATH, 'L4');
+  const l2SchemaDiagnostics = validateSchema(flowFiles, L2_SCHEMA_PATH, 'L2');
+  const l3SchemaDiagnostics = validateSchema(uiFiles, L3_SCHEMA_PATH, 'L3');
+  const l4SchemaDiagnostics = validateSchema(stateFiles, L4_SCHEMA_PATH, 'L4');
 
   // -------------------------
   // L2
@@ -97,11 +90,11 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const screens = l2Collected.value?.screens ?? new Map();
   const transitions = l2Collected.value?.transitions ?? [];
   const l2Errors = l2Collected.value?.errors ?? [];
-  const l2FatalDiagnostics = l2Collected.diagnostics;
+  const l2Fatal = l2Collected.diagnostics;
 
-  const l2Warnings = validateTransitions(screens, transitions); // 既存実装のまま
-  // ここで warning を info に落とす（状態可視化の扱い）
-  const l2Infos = l2Warnings.map((d) => ({ ...d, level: 'info' as const }));
+  // ★ ここは “変換しない”
+  // l2.ts 側で error/info を決め打ちしている前提
+  const l2TransitionDiagnostics = validateTransitions(screens, transitions);
 
   // -------------------------
   // L3
@@ -109,26 +102,23 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const uiActions = collectUIActions(uiFiles);
 
   const l3ScreenErrors = validateL3ScreensExistInL2(uiFiles, screens);
-  const crossErrors = validateL3L2Cross(uiActions, transitions);
+  const l3L2CrossErrors = validateL3L2Cross(uiActions, transitions);
 
-  // unused transition（L2->L3）: 既存関数が返す diagnostics を集約して info 1件にまとめる
+  // L2 transition unused (by L3) を 1 件に集約して info にする
+  // ※ validateL2TransitionsUsedByL3 の中身は既存を壊さないため “読み取り”だけ
   const rawUnused = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
-
   const unusedItems = rawUnused
     .filter((d) => d.code === 'L2_TRANSITION_UNUSED')
     .map((d) => {
       const meta = (d.meta ?? {}) as Record<string, unknown>;
       const fromKey = typeof meta.fromKey === 'string' ? meta.fromKey : undefined;
       const toKey = typeof meta.toKey === 'string' ? meta.toKey : undefined;
-      const key =
-        typeof meta.transitionId === 'string'
-          ? meta.transitionId
-          : fromKey && toKey
-            ? `${fromKey} -> ${toKey}`
-            : d.message;
+      const transitionId = typeof meta.transitionId === 'string' ? meta.transitionId : undefined;
 
-      // labels を付けると formatUnused のグルーピングが効くので、
-      // L2の場合は「fromKey を擬似的な root」にする（プロジェクト固有語彙ではなく、構造=from側）
+      const key = transitionId ?? (fromKey && toKey ? `${fromKey} -> ${toKey}` : d.message);
+
+      // L2 の場合は OpenAPI の path のような構造が無いので、
+      // 「FROM <fromKey>」という構造ラベルで十分（プロジェクト固有語彙ではない）
       const labels = fromKey ? [`FROM ${fromKey}`] : undefined;
 
       return { key, labels };
@@ -136,11 +126,10 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
 
   const l2UnusedDiagnostics: Diagnostic[] = [];
   if (unusedItems.length) {
-    const msg = formatUnused('L2 未使用 transition', unusedItems);
     l2UnusedDiagnostics.push({
       code: 'L2_TRANSITION_UNUSED',
       level: 'info',
-      message: msg,
+      message: formatUnused('L2 未使用 transition', unusedItems),
       meta: { count: unusedItems.length },
     });
   }
@@ -149,19 +138,16 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   // L4
   // -------------------------
   const stateScreens = collectStateScreens(stateFiles);
-  const l4Errors = validateL4L2Cross(stateScreens, screens);
+  const l4L2Errors = validateL4L2Cross(stateScreens, screens);
 
   const l4Details = collectL4Details(stateFiles);
-  const l4EventWarnings = validateL4EventsCross(l4Details, transitions, screens);
-  // 状態可視化として info 扱い
-  const l4EventInfos = l4EventWarnings.map((d) => ({ ...d, level: 'info' as const }));
+  const l4EventDiagnostics = validateL4EventsCross(l4Details, transitions, screens);
+  // ※ここも “変換しない”。l4.ts 側で error/info を決める（今後決め打ちにする）
 
   // -------------------------
   // i18n
   // -------------------------
   const i18nDiagnostics = validateI18n(options.specsDir, config, screens, uiFiles);
-  // （i18n は今まで通り：missing key は error、未翻訳は warning かもしれないが、
-  //  “実装不能ならerror終了”に合わせるなら、未翻訳も info に落としたい場合はここで変換可能）
 
   // -------------------------
   // OpenAPI ↔ L4
@@ -195,32 +181,31 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
           schemaDir: options.schemaDir,
           openapiPath: resolvedOpenapiPath,
         });
-
         openapiDiagnostics.push(...r.diagnostics);
       }
     }
   }
 
   // -------------------------
-  // Diagnostics merge (layer order fixed)
+  // Merge (layer order fixed)
   // -------------------------
   const diagnostics: Diagnostic[] = [
     // L2
-    ...l2SchemaErrors,
-    ...l2FatalDiagnostics,
+    ...l2SchemaDiagnostics,
+    ...l2Fatal,
     ...l2Errors,
-    ...l2Infos,
+    ...l2TransitionDiagnostics,
     ...l2UnusedDiagnostics,
 
     // L3
-    ...l3SchemaErrors,
+    ...l3SchemaDiagnostics,
     ...l3ScreenErrors,
-    ...crossErrors,
+    ...l3L2CrossErrors,
 
     // L4
-    ...l4SchemaErrors,
-    ...l4Errors,
-    ...l4EventInfos,
+    ...l4SchemaDiagnostics,
+    ...l4L2Errors,
+    ...l4EventDiagnostics,
 
     // i18n
     ...i18nDiagnostics,

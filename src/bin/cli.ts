@@ -1,15 +1,6 @@
 #!/usr/bin/env node
 
-/**
- * CLI Entry Point for mobilespec (SDD)
- *
- * Usage:
- *   mobilespec validate [--specs-dir <path>] [--schema-dir <path>]
- *   mobilespec mermaid  [--specs-dir <path>] [--schema-dir <path>]
- *   mobilespec i18n     [--specs-dir <path>] [--schema-dir <path>]
- *   mobilespec check    [--specs-dir <path>] [--schema-dir <path>]
- *   mobilespec openapi-check [--openapi <path>] [--specs-dir <path>] [--schema-dir <path>]
- */
+// src/bin/cli.ts
 import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -31,7 +22,6 @@ type Args = {
   specsDir: string;
   schemaDir: string;
   openapiPath?: string;
-  checkSelectRoot?: boolean;
 };
 
 function getArg(args: string[], key: string): string | undefined {
@@ -40,31 +30,15 @@ function getArg(args: string[], key: string): string | undefined {
   return undefined;
 }
 
-function has(args: string[], key: string) {
-  return args.includes(key);
-}
-
 function parse(): Args {
   const args = process.argv.slice(2);
   const cmd = args[0] ?? 'check';
   const specsDir = getArg(args, '--specs-dir') ?? process.cwd();
   const schemaDir = getArg(args, '--schema-dir') ?? DEFAULT_SCHEMA_DIR;
-
   const openapiPath = getArg(args, '--openapi');
-  const checkSelectRoot = has(args, '--check-select-root');
-
-  return { cmd, specsDir, schemaDir, openapiPath, checkSelectRoot };
+  return { cmd, specsDir, schemaDir, openapiPath };
 }
 
-/**
- * Print diagnostics and return exit code.
- * - errors > 0 => 1
- * - otherwise => 0
- *
- * Policy:
- * - info is always printed (progress indicator)
- * - CI/CD checks only exit code (error-only)
- */
 function reportAndCode(result: HasDiagnostics): number {
   const errors = errorsOf(result);
   const infos = infosOf(result);
@@ -72,14 +46,9 @@ function reportAndCode(result: HasDiagnostics): number {
   for (const e of errors) console.error(`❌ ${e.message}`);
   for (const i of infos) console.log(`ℹ️ ${i.message}`);
 
-  return errors.length > 0 ? 1 : 0;
+  return errors.length ? 1 : 0;
 }
 
-/**
- * Resolve openapi path:
- * - If absolute => keep
- * - If relative => resolve from specsDir
- */
 function resolveOpenapiPath(specsDir: string, raw: string): string {
   return path.isAbsolute(raw) ? raw : path.resolve(specsDir, raw);
 }
@@ -119,7 +88,6 @@ async function main() {
     }
 
     case 'openapi-check': {
-      // openapi-check は単体検証。--openapi が無ければ config.openapi.path を使う
       const cfg = loadConfig(a.specsDir);
       const raw =
         (typeof a.openapiPath === 'string' && a.openapiPath.trim() !== ''
@@ -135,7 +103,6 @@ async function main() {
       }
 
       const resolved = resolveOpenapiPath(a.specsDir, raw);
-
       if (!fs.existsSync(resolved)) {
         console.error(`❌ OpenAPI が見つかりません: ${resolved}`);
         process.exit(1);

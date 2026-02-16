@@ -1,3 +1,4 @@
+// src/validate/l2.ts
 import type { Diagnostic } from '../types/diagnostic.js';
 import {
   ambiguousTarget,
@@ -127,45 +128,136 @@ export function collectScreensAndTransitions(
 
 /* ================================
  * Validate Transitions
+ *
+ * Policy:
+ * - entry は 0 件なら error（実装不能）
+ * - entry は複数でも OK（info で状態表示）
+ * - entry から到達不能な screen は error（実装不能）
+ * - outgoing が無い（exit 以外）は info（状態）
  * ================================ */
 
 export function validateTransitions(
   screens: Map<string, Screen>,
   transitions: Transition[]
 ): Diagnostic[] {
-  const warnings: Diagnostic[] = [];
-  const screensWithIncoming = new Set<string>();
-  const screensWithOutgoing = new Set<string>();
+  const diagnostics: Diagnostic[] = [];
 
-  // 遷移の存在チェック
+  const entryKeys: string[] = [];
+  for (const [key, s] of screens.entries()) {
+    if (s.entry) entryKeys.push(key);
+  }
+
+  // entry が無い = 実装不能
+  if (entryKeys.length === 0) {
+    diagnostics.push({
+      code: 'L2_INVALID',
+      level: 'error',
+      message:
+        'entry: true の screen が存在しません（起点が無いため到達可能性を定義できず実装不能）',
+    });
+    // entry が無い場合でも、他の状態（outgoing 等）は参考になりうるので続行する
+  } else {
+    // entry が複数 = 許容（状態）
+    if (entryKeys.length >= 2) {
+      const entries = entryKeys
+        .map((k) => {
+          const s = screens.get(k);
+          return s ? displayId(s.id, s.context) : k;
+        })
+        .join(', ');
+      diagnostics.push({
+        code: 'L2_INVALID',
+        level: 'info',
+        message: `entry screen が複数あります（許容）: ${entries}`,
+        meta: { entryKeys },
+      });
+    } else {
+      const only = screens.get(entryKeys[0]);
+      diagnostics.push({
+        code: 'L2_INVALID',
+        level: 'info',
+        message: `entry screen: ${only ? displayId(only.id, only.context) : entryKeys[0]}`,
+        meta: { entryKeys },
+      });
+    }
+  }
+
+  // グラフ探索（entry から到達可能か）
+  const reachable = new Set<string>();
+  const queue: string[] = [];
+
+  for (const k of entryKeys) {
+    if (!reachable.has(k)) {
+      reachable.add(k);
+      queue.push(k);
+    }
+  }
+
+  // adjacency
+  const outgoingByFrom = new Map<string, string[]>();
   for (const t of transitions) {
-    screensWithOutgoing.add(t.fromKey);
-    screensWithIncoming.add(t.toKey);
+    const arr = outgoingByFrom.get(t.fromKey) ?? [];
+    arr.push(t.toKey);
+    outgoingByFrom.set(t.fromKey, arr);
   }
 
-  // 遷移元がない画面（entry以外）
-  for (const [key, screen] of screens.entries()) {
-    if (!screen.entry && !screensWithIncoming.has(key)) {
-      warnings.push({
-        code: 'L2_INVALID_TRANSITION_FROM',
-        level: 'warning',
-        message: `遷移元がありません: ${displayId(screen.id, screen.context)} (${key})`,
-        meta: { screenId: screen.id, context: screen.context, key },
-      });
+  while (queue.length) {
+    const cur = queue.shift()!;
+    const nexts = outgoingByFrom.get(cur) ?? [];
+    for (const n of nexts) {
+      if (!reachable.has(n)) {
+        reachable.add(n);
+        queue.push(n);
+      }
     }
   }
 
-  // 遷移先がない画面（exit以外）
-  for (const [key, screen] of screens.entries()) {
-    if (!screen.exit && !screensWithOutgoing.has(key)) {
-      warnings.push({
-        code: 'L2_INVALID_TRANSITION_TO',
-        level: 'warning',
-        message: `遷移先がありません: ${displayId(screen.id, screen.context)} (${key})`,
-        meta: { screenId: screen.id, context: screen.context, key },
-      });
+  // 到達不能 = 実装不能
+  const unreachable: { key: string; label: string }[] = [];
+  for (const [key, s] of screens.entries()) {
+    if (!reachable.has(key)) {
+      unreachable.push({ key, label: displayId(s.id, s.context) });
     }
   }
 
-  return warnings;
+  if (unreachable.length) {
+    const list = unreachable
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((u) => `  - ${u.label} (${u.key})`)
+      .join('\n');
+
+    diagnostics.push({
+      code: 'L2_INVALID',
+      level: 'error',
+      message: `entry から到達不能な screen があります（実装不能）:\n${list}`,
+      meta: { count: unreachable.length, keys: unreachable.map((u) => u.key) },
+    });
+  }
+
+  // exit でないのに outgoing が無い = 状態（info）
+  const screensWithOutgoing = new Set<string>();
+  for (const t of transitions) screensWithOutgoing.add(t.fromKey);
+
+  const noOutgoing: { key: string; label: string }[] = [];
+  for (const [key, s] of screens.entries()) {
+    if (!s.exit && !screensWithOutgoing.has(key)) {
+      noOutgoing.push({ key, label: displayId(s.id, s.context) });
+    }
+  }
+
+  if (noOutgoing.length) {
+    const list = noOutgoing
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((u) => `  - ${u.label} (${u.key})`)
+      .join('\n');
+
+    diagnostics.push({
+      code: 'L2_INVALID_TRANSITION_TO',
+      level: 'info',
+      message: `exit ではないのに遷移先（outgoing）が無い screen:\n${list}`,
+      meta: { count: noOutgoing.length, keys: noOutgoing.map((u) => u.key) },
+    });
+  }
+
+  return diagnostics;
 }
