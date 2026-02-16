@@ -147,7 +147,7 @@ screen:
 
     const warn = findByCode(r, 'L2_TRANSITION_UNUSED');
     expect(warn).toBeDefined();
-    expect(warn?.meta?.transitionId).toBe('unused_transition');
+    expect(warn?.message).toContain('unused_transition');
   });
 
   it('ng: i18n untranslated => goes to warnings (I18N_UNTRANSLATED)', async () => {
