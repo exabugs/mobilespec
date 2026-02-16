@@ -145,7 +145,6 @@ async function main() {
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
         openapiPath: resolved,
-        checkSelectRoot: a.checkSelectRoot ?? false,
       });
 
       const code = reportAndCode(r);

@@ -190,13 +190,10 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
           meta: { path: resolvedOpenapiPath, raw: openapiPathRaw },
         });
       } else {
-        const checkSelectRoot = config.openapi?.checkSelectRoot === true;
-
         const r = await openapiCheck({
           specsDir: options.specsDir,
           schemaDir: options.schemaDir,
           openapiPath: resolvedOpenapiPath,
-          checkSelectRoot,
         });
 
         openapiDiagnostics.push(...r.diagnostics);
