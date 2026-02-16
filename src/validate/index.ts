@@ -1,5 +1,8 @@
+// src/validate/index.ts
+import fs from 'node:fs';
 import path from 'path';
 
+import { openapiCheck } from '../openapiCheck.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
 import { validateI18n } from './i18n.js';
@@ -54,7 +57,7 @@ function asValidationResult(
   };
 }
 
-export function validate(options: ValidateOptions): ValidationResult {
+export async function validate(options: ValidateOptions): Promise<ValidationResult> {
   const SCREENFLOW_DIR = path.join(options.specsDir, 'L2.screenflows');
   const UI_DIR = path.join(options.specsDir, 'L3.ui');
   const STATE_DIR = path.join(options.specsDir, 'L4.state');
@@ -88,7 +91,7 @@ export function validate(options: ValidateOptions): ValidationResult {
   // L3 → L2: screen が L2 に存在するか（error）
   const l3ScreenErrors = validateL3ScreensExistInL2(uiFiles, screens);
 
-  // L3-L2クロスバリデーション（ここは引き続き error）
+  // L3-L2クロスバリデーション
   const crossErrors = validateL3L2Cross(uiActions, transitions);
   const unusedTransitionWarnings = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
 
@@ -96,12 +99,56 @@ export function validate(options: ValidateOptions): ValidationResult {
   const stateScreens = collectStateScreens(stateFiles);
   const l4Errors = validateL4L2Cross(stateScreens, screens);
 
-  // L4.events (callQuery/callMutation) の cross-layer（導入期は warning）
+  // L4.events cross-layer（導入期は warning）
   const l4Details = collectL4Details(stateFiles);
   const l4EventWarnings = validateL4EventsCross(l4Details, transitions, screens);
 
   // i18n 未翻訳チェック（warning）＋キー欠損（error）
   const i18nDiagnostics = validateI18n(options.specsDir, config, screens, uiFiles);
+
+  // OpenAPI ↔ L4
+  const openapiDiagnostics: Diagnostic[] = [];
+  const openapiPathRaw = config.openapi?.path;
+
+  if (openapiPathRaw != null) {
+    // 「openapi が設定されている」＝厳格に扱う（空や不正も error）
+    if (typeof openapiPathRaw !== 'string' || openapiPathRaw.trim() === '') {
+      openapiDiagnostics.push({
+        code: 'OPENAPI_NOT_FOUND',
+        level: 'error',
+        message: 'openapi.path が不正です（空文字 or 非文字列）',
+        meta: { openapiPath: openapiPathRaw },
+      });
+    } else {
+      // ★ path.resolve に変更（.. を正規化）
+      const resolvedOpenapiPath = path.isAbsolute(openapiPathRaw)
+        ? openapiPathRaw
+        : path.resolve(options.specsDir, openapiPathRaw);
+
+      // ★ 指定があるのにファイルがないなら error
+      if (!fs.existsSync(resolvedOpenapiPath)) {
+        openapiDiagnostics.push({
+          code: 'OPENAPI_NOT_FOUND',
+          level: 'error',
+          message: `OpenAPI が見つかりません: ${resolvedOpenapiPath}`,
+          meta: { path: resolvedOpenapiPath, raw: openapiPathRaw },
+        });
+      } else {
+        const warnUnusedOperationId = config.openapi?.warnUnusedOperationId !== false; // default true
+        const checkSelectRoot = config.openapi?.checkSelectRoot === true; // default false
+
+        const r = await openapiCheck({
+          specsDir: options.specsDir,
+          schemaDir: options.schemaDir,
+          openapiPath: resolvedOpenapiPath,
+          warnUnusedOperationId,
+          checkSelectRoot,
+        });
+
+        openapiDiagnostics.push(...r.diagnostics);
+      }
+    }
+  }
 
   // 診断を統合
   const diagnostics = [
@@ -116,6 +163,7 @@ export function validate(options: ValidateOptions): ValidationResult {
     ...unusedTransitionWarnings,
     ...l4EventWarnings,
     ...i18nDiagnostics,
+    ...openapiDiagnostics,
   ];
 
   return asValidationResult(screens, config, transitions, uiActions, stateScreens, diagnostics);

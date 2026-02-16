@@ -10,10 +10,24 @@ export type MobileSpecConfig = {
     screenOrder?: string[];
   };
 
-  // 追加：i18n（任意）
   i18n?: {
     // 例: ["ja", "en", "zh-Hans", "ko"]
     locales?: string[];
+  };
+
+  validation?: {
+    allowNoIncoming?: string[];
+  };
+
+  openapi?: {
+    // 例: "specs/openapi.yaml" など（specsDir からの相対でもOKにする運用が多い）
+    path: string;
+
+    // 導入期: 未使用 operationId を warning にするか（openapiCheck の L4_UNUSED_OPERATION_ID）
+    warnUnusedOperationId?: boolean;
+
+    // selectRoot をチェックするか（導入期は false でもOK）
+    checkSelectRoot?: boolean;
   };
 };
 

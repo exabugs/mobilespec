@@ -10,13 +10,16 @@ import type { Diagnostic, DiagnosticResult } from './types/diagnostic.js';
 
 export type OpenapiCheckOptions = {
   specsDir: string;
-  schemaDir: string; // ★ ここを使う（L4.state.schema.json）
+  schemaDir: string;
   openapiPath: string;
+
+  // ★追加（config から注入）
+  warnUnusedOperationId: boolean;
+  checkSelectRoot: boolean;
 };
 
 export type OpenapiCheckResult = DiagnosticResult;
 
-// ヘルパー関数: diagnostics配列をOpenapiCheckResultに変換
 function asResult(diagnostics: Diagnostic[]): OpenapiCheckResult {
   return {
     diagnostics,
@@ -33,19 +36,16 @@ function asResult(diagnostics: Diagnostic[]): OpenapiCheckResult {
 // Zod schemas (OpenAPI only)
 // ------------------------------------
 
-// OpenAPI: operationId だけ拾う。他は全部無視したいので "looseObject"
 const OpenApiOperationSchema = z.looseObject({
   operationId: z.string().min(1).optional(),
+  responses: z.record(z.string(), z.unknown()).optional(),
 });
-
-// pathItem: { get: {operationId?}, post: {...}, ... }
 const OpenApiPathItemSchema = z.record(z.string(), OpenApiOperationSchema);
-
-// openapi doc: paths: Record<path, pathItem>
 const OpenApiSchema = z.looseObject({
   openapi: z.string().optional(),
   swagger: z.string().optional(),
   paths: z.record(z.string(), OpenApiPathItemSchema).optional(),
+  components: z.unknown().optional(),
 });
 
 const HttpMethodSchema = z.enum([
@@ -71,14 +71,110 @@ type OpenApiDoc = z.infer<typeof OpenApiSchema>;
 type OpenApiPathItem = z.infer<typeof OpenApiPathItemSchema>;
 type OpenApiOperation = z.infer<typeof OpenApiOperationSchema>;
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// ------------------------------------
+// OpenAPI response schema -> root keys (bundle-aware)
+// ------------------------------------
+
+function pickFirst2xxJsonSchema(op: OpenApiOperation): unknown | null {
+  const responses = op.responses;
+  if (!responses || !isRecord(responses)) return null;
+
+  const codes = Object.keys(responses)
+    .filter((k) => /^\d{3}$/.test(k))
+    .sort((a, b) => Number(a) - Number(b));
+
+  for (const code of codes) {
+    if (!code.startsWith('2')) continue;
+
+    const r = responses[code];
+    if (!isRecord(r)) continue;
+
+    const content = r['content'];
+    if (!isRecord(content)) continue;
+
+    const appJson = content['application/json'];
+    if (isRecord(appJson) && isRecord(appJson['schema'])) return appJson['schema'];
+
+    for (const [ct, body] of Object.entries(content)) {
+      if (!ct.includes('json')) continue;
+      if (isRecord(body) && isRecord(body['schema'])) return body['schema'];
+    }
+  }
+
+  return null;
+}
+
+type ResponseRootKeys =
+  | { kind: 'keys'; keys: Set<string> }
+  | { kind: 'unresolved'; reason: string };
+
+function decodeJsonPointerToken(s: string): string {
+  return s.replace(/~1/g, '/').replace(/~0/g, '~');
+}
+
+function resolveJsonPointer(doc: unknown, ref: string): unknown | null {
+  if (!ref.startsWith('#/')) return null;
+  if (!isRecord(doc)) return null;
+
+  const parts = ref.slice(2).split('/').map(decodeJsonPointerToken);
+
+  let cur: unknown = doc;
+  for (const part of parts) {
+    if (!isRecord(cur)) return null;
+    cur = cur[part];
+  }
+  return cur ?? null;
+}
+
+function extractRootKeysFromSchema(doc: unknown, schema: unknown, depth = 0): ResponseRootKeys {
+  if (depth > 16) return { kind: 'unresolved', reason: 'ref depth limit' };
+  if (!isRecord(schema)) return { kind: 'unresolved', reason: 'schema is not an object' };
+
+  const ref = schema['$ref'];
+  if (typeof ref === 'string') {
+    const resolved = resolveJsonPointer(doc, ref);
+    if (!resolved) return { kind: 'unresolved', reason: `cannot resolve $ref: ${ref}` };
+    return extractRootKeysFromSchema(doc, resolved, depth + 1);
+  }
+
+  const props = schema['properties'];
+  if (isRecord(props)) return { kind: 'keys', keys: new Set(Object.keys(props)) };
+
+  const allOf = schema['allOf'];
+  if (Array.isArray(allOf)) {
+    const merged = new Set<string>();
+    let any = false;
+    for (const s of allOf) {
+      const r = extractRootKeysFromSchema(doc, s, depth + 1);
+      if (r.kind === 'keys') {
+        any = true;
+        for (const k of r.keys) merged.add(k);
+      }
+    }
+    if (any) return { kind: 'keys', keys: merged };
+    return { kind: 'unresolved', reason: 'allOf but no properties' };
+  }
+
+  if (Array.isArray(schema['oneOf'])) return { kind: 'unresolved', reason: 'oneOf schema' };
+  if (Array.isArray(schema['anyOf'])) return { kind: 'unresolved', reason: 'anyOf schema' };
+
+  return { kind: 'unresolved', reason: 'schema.properties is missing' };
+}
+
 function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
   opIds: Set<string>;
   duplicates: Map<string, string[]>;
   missing: string[];
+  rootKeysByOpId: Map<string, ResponseRootKeys>;
 } {
   const opIds = new Set<string>();
   const occurrences = new Map<string, string[]>();
   const missing: string[] = [];
+  const rootKeysByOpId = new Map<string, ResponseRootKeys>();
 
   const paths = doc.paths ?? {};
 
@@ -99,6 +195,16 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
       const arr = occurrences.get(operationId) ?? [];
       arr.push(label);
       occurrences.set(operationId, arr);
+
+      const schema = pickFirst2xxJsonSchema(op);
+      if (schema) {
+        rootKeysByOpId.set(operationId, extractRootKeysFromSchema(doc, schema));
+      } else {
+        rootKeysByOpId.set(operationId, {
+          kind: 'unresolved',
+          reason: 'no 2xx application/json schema',
+        });
+      }
     }
   }
 
@@ -107,27 +213,21 @@ function collectOperationIdsFromOpenApi(doc: OpenApiDoc): {
     if (where.length > 1) duplicates.set(id, where);
   }
 
-  return { opIds, duplicates, missing };
+  return { opIds, duplicates, missing, rootKeysByOpId };
 }
 
 // ------------------------------------
-// AJV (L4 validation)
+// L4 refs (AJV) + selectRoot
 // ------------------------------------
-
-// const require = createRequire(import.meta.url);
-// const Ajv = (require('ajv/dist/2020') as any).default ?? require('ajv/dist/2020');
 
 type L4Ref = {
   screenId: string;
   kind: 'query' | 'mutation';
   name: string;
   operationId: string;
+  selectRoot?: string;
   file: string;
 };
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
 
 function collectOperationIdRefsFromL4(
   specsDir: string,
@@ -160,22 +260,16 @@ function collectOperationIdRefsFromL4(
         code: 'L4_INVALID',
         level: 'error',
         message: `L4 invalid: ${path.relative(specsDir, f)}: ${details}`,
-        meta: {
-          file: path.relative(specsDir, f),
-          details,
-        },
+        meta: { file: path.relative(specsDir, f), details },
       });
       continue;
     }
 
-    // ここから先は “スキーマに通った raw” として、必要箇所だけ安全に読む
     if (!isRecord(raw)) continue;
-
     const screen = raw['screen'];
     if (!isRecord(screen)) continue;
 
     const screenId = String(screen['id'] ?? '');
-
     const data = screen['data'];
     if (!isRecord(data)) continue;
 
@@ -184,8 +278,17 @@ function collectOperationIdRefsFromL4(
       for (const [name, q] of Object.entries(queries)) {
         if (!isRecord(q)) continue;
         const operationId = q['operationId'];
+        const selectRoot = q['selectRoot'];
         if (typeof operationId === 'string' && operationId.trim() !== '') {
-          refs.push({ screenId, kind: 'query', name, operationId, file: f });
+          refs.push({
+            screenId,
+            kind: 'query',
+            name,
+            operationId,
+            selectRoot:
+              typeof selectRoot === 'string' && selectRoot.trim() !== '' ? selectRoot : undefined,
+            file: f,
+          });
         }
       }
     }
@@ -195,8 +298,17 @@ function collectOperationIdRefsFromL4(
       for (const [name, m] of Object.entries(mutations)) {
         if (!isRecord(m)) continue;
         const operationId = m['operationId'];
+        const selectRoot = m['selectRoot'];
         if (typeof operationId === 'string' && operationId.trim() !== '') {
-          refs.push({ screenId, kind: 'mutation', name, operationId, file: f });
+          refs.push({
+            screenId,
+            kind: 'mutation',
+            name,
+            operationId,
+            selectRoot:
+              typeof selectRoot === 'string' && selectRoot.trim() !== '' ? selectRoot : undefined,
+            file: f,
+          });
         }
       }
     }
@@ -204,6 +316,10 @@ function collectOperationIdRefsFromL4(
 
   return { refs, l4Files, errors };
 }
+
+// ------------------------------------
+// main
+// ------------------------------------
 
 export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCheckResult> {
   const diagnostics: Diagnostic[] = [];
@@ -231,7 +347,9 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     return asResult(diagnostics);
   }
 
-  const { opIds, duplicates, missing } = collectOperationIdsFromOpenApi(openapiParsed.data);
+  const { opIds, duplicates, missing, rootKeysByOpId } = collectOperationIdsFromOpenApi(
+    openapiParsed.data
+  );
 
   // ---- OpenAPI quality ----
   if (missing.length) {
@@ -255,7 +373,7 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
     });
   }
 
-  // ---- L4 refs (AJV) ----
+  // ---- L4 refs ----
   const {
     refs,
     l4Files,
@@ -290,19 +408,63 @@ export async function openapiCheck(opts: OpenapiCheckOptions): Promise<OpenapiCh
           file: path.relative(opts.specsDir, r.file),
         },
       });
+      continue;
+    }
+
+    if (opts.checkSelectRoot && r.selectRoot) {
+      const info = rootKeysByOpId.get(r.operationId);
+      if (!info) {
+        diagnostics.push({
+          code: 'OPENAPI_RESPONSE_SCHEMA_UNRESOLVED',
+          level: 'warning',
+          message: `OpenAPI response schema を取得できず selectRoot を検証できません: operationId=${r.operationId}`,
+          meta: { operationId: r.operationId, screenId: r.screenId, kind: r.kind, name: r.name },
+        });
+      } else if (info.kind === 'unresolved') {
+        diagnostics.push({
+          code: 'OPENAPI_RESPONSE_SCHEMA_UNRESOLVED',
+          level: 'warning',
+          message: `OpenAPI response schema を解決できず selectRoot を検証できません: operationId=${r.operationId} reason=${info.reason}`,
+          meta: {
+            operationId: r.operationId,
+            reason: info.reason,
+            screenId: r.screenId,
+            kind: r.kind,
+            name: r.name,
+          },
+        });
+      } else {
+        if (!info.keys.has(r.selectRoot)) {
+          diagnostics.push({
+            code: 'L4_INVALID_SELECT_ROOT',
+            level: 'warning',
+            message: `L4 selectRoot が OpenAPI レスポンスのrootに存在しません: operationId=${r.operationId} selectRoot=${r.selectRoot}`,
+            meta: {
+              operationId: r.operationId,
+              selectRoot: r.selectRoot,
+              availableRoots: [...info.keys].sort((a, b) => a.localeCompare(b)),
+              screenId: r.screenId,
+              kind: r.kind,
+              name: r.name,
+            },
+          });
+        }
+      }
     }
   }
 
   // ---- OpenAPI -> L4 ----
-  const used = new Set(refs.map((r) => r.operationId));
-  const unused = [...opIds].filter((id) => !used.has(id));
-  if (unused.length) {
-    diagnostics.push({
-      code: 'L4_UNUSED_OPERATION_ID',
-      level: 'warning',
-      message: `OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`,
-      meta: { operationIds: unused },
-    });
+  if (opts.warnUnusedOperationId) {
+    const used = new Set(refs.map((r) => r.operationId));
+    const unused = [...opIds].filter((id) => !used.has(id));
+    if (unused.length) {
+      diagnostics.push({
+        code: 'L4_UNUSED_OPERATION_ID',
+        level: 'warning',
+        message: `OpenAPI operationId が L4 から未参照（導入期ならOK）: ${unused.join(', ')}`,
+        meta: { operationIds: unused },
+      });
+    }
   }
 
   return asResult(diagnostics);

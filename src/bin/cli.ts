@@ -8,14 +8,16 @@
  *   mobilespec mermaid  [--specs-dir <path>] [--schema-dir <path>]
  *   mobilespec i18n     [--specs-dir <path>] [--schema-dir <path>]
  *   mobilespec check    [--specs-dir <path>] [--schema-dir <path>] [--fail-on-warnings|--no-fail-on-warnings]
- *   mobilespec openapi-check --openapi <path> [--specs-dir <path>] [--schema-dir <path>] [--fail-on-warnings|--no-fail-on-warnings]
+ *   mobilespec openapi-check [--openapi <path>] [--specs-dir <path>] [--schema-dir <path>] [--fail-on-warnings|--no-fail-on-warnings]
  */
+import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { generateI18n } from '../generateI18n.js';
 import { generateMermaid } from '../generateMermaid.js';
 import { openapiCheck } from '../openapiCheck.js';
+import { loadConfig } from '../validate/config.js';
 import { validate } from '../validate/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +30,9 @@ type Args = {
   schemaDir: string;
   failOnWarnings: boolean;
   openapiPath?: string;
+  // openapi-check 専用のフラグ（導入期用）
+  warnUnusedOperationId?: boolean;
+  checkSelectRoot?: boolean;
 };
 
 function getArg(args: string[], key: string): string | undefined {
@@ -52,7 +57,20 @@ function parse(): Args {
   if (has(args, '--fail-on-warnings')) failOnWarnings = true;
 
   const openapiPath = getArg(args, '--openapi');
-  return { cmd, specsDir, schemaDir, failOnWarnings, openapiPath };
+
+  // openapi-check のオプション（必要になったら拡張）
+  const warnUnusedOperationId = has(args, '--warn-unused-operation-id');
+  const checkSelectRoot = has(args, '--check-select-root');
+
+  return {
+    cmd,
+    specsDir,
+    schemaDir,
+    failOnWarnings,
+    openapiPath,
+    warnUnusedOperationId,
+    checkSelectRoot,
+  };
 }
 
 /**
@@ -81,11 +99,21 @@ function reportAndCode(
   return 0;
 }
 
+/**
+ * Resolve openapi path:
+ * - If absolute => keep
+ * - If relative => resolve from specsDir (same rule as validate/index.ts)
+ */
+function resolveOpenapiPath(specsDir: string, raw: string): string {
+  return path.isAbsolute(raw) ? raw : path.resolve(specsDir, raw);
+}
+
 async function main() {
   const a = parse();
 
   switch (a.cmd) {
     case 'validate': {
+      // validate は config を読んで openapiCheck も含めて実行する（CLI 側で上書きしない）
       const r = await validate({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
@@ -108,6 +136,7 @@ async function main() {
     }
 
     case 'check': {
+      // check は validate（openapi含む）を先に実行
       const r = await validate({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
@@ -122,15 +151,39 @@ async function main() {
     }
 
     case 'openapi-check': {
-      if (!a.openapiPath) {
-        console.error('openapi-check requires --openapi <path>');
+      // openapi-check は「単体検証」。--openapi が無ければ config.openapi.path を使う
+      const cfg = loadConfig(a.specsDir);
+      const raw =
+        (typeof a.openapiPath === 'string' && a.openapiPath.trim() !== ''
+          ? a.openapiPath
+          : undefined) ??
+        (typeof cfg.openapi?.path === 'string' && cfg.openapi.path.trim() !== ''
+          ? cfg.openapi.path
+          : undefined);
+
+      if (!raw) {
+        console.error('openapi-check requires --openapi <path> or config openapi.path');
         process.exit(1);
       }
+
+      const resolved = resolveOpenapiPath(a.specsDir, raw);
+
+      // ★ 指定があるのに無いなら error で落とす（ここで明示）
+      if (!fs.existsSync(resolved)) {
+        console.error(`❌ OpenAPI が見つかりません: ${resolved}`);
+        process.exit(1);
+      }
+
+      // デフォルトは導入期向け（unused/selectRoot は off）
+      const warnUnusedOperationId = a.warnUnusedOperationId ?? false;
+      const checkSelectRoot = a.checkSelectRoot ?? false;
 
       const r = await openapiCheck({
         specsDir: a.specsDir,
         schemaDir: a.schemaDir,
-        openapiPath: a.openapiPath,
+        openapiPath: resolved,
+        warnUnusedOperationId,
+        checkSelectRoot,
       });
 
       const code = reportAndCode(r, a.failOnWarnings);
