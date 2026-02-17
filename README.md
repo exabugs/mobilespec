@@ -1,18 +1,3 @@
-結論から言うと：
-
-> **はい、READMEは全面置き換えで良いです。**
-> ただし、今アップロードされた4ドキュメントは統合して「体系化」してから配置すべきです。
-
-今のREADMEは思想中心で強いですが、
-**現行実装（error/info二段階・到達不能はerror・selectRoot必須・warning廃止）と完全には一致していません。**
-
-ここで一度、**実装と完全整合した公式版ドキュメント**を提示します。
-
----
-
-# ✅ 新 README.md（置き換え用・完成版）
-
-```markdown
 # mobilespec
 
 ## Structure-Driven Development (SDD) 仕様エンジン
@@ -23,7 +8,7 @@ mobilespec は
 
 ---
 
-# 🎯 SDD とは
+## 🎯 SDD とは
 
 SDD は、
 
@@ -38,7 +23,7 @@ SDD は、
 
 ---
 
-# 🧠 基本原則
+## 🧠 基本原則
 
 1. 構造が正、実装は生成物
 2. OpenAPI は API 契約の唯一の正
@@ -50,23 +35,22 @@ SDD は、
 
 ---
 
-# 🔎 診断ポリシー（固定）
+## 🔎 診断ポリシー（固定）
 
 mobilespec は **2段階のみ** を採用する。
 
-| level | 意味 |
-|-------|------|
-| error | 実装不能（CI fail） |
+| level | 意味                   |
+| ----- | ---------------------- |
+| error | 実装不能（CI fail）    |
 | info  | 状態可視化（常時表示） |
 
 warning は使用しない。
 
 ---
 
-# 🔗 構造接続ルール
+## 🔗 構造接続ルール
 
-```
-
+```txt
 L3.action
 ↓
 L2.transition.id
@@ -76,7 +60,6 @@ L4.events key
 L4.data (query/mutation key)
 ↓
 OpenAPI.operationId
-
 ```
 
 この縦接続が成立している状態を  
@@ -84,49 +67,47 @@ OpenAPI.operationId
 
 ---
 
-# 📐 検証内容
+## 📐 検証内容
 
-## L2
+### L2
 
 - screen 重複
 - 遷移ターゲット不正
 - entry から到達不能 screen → ❌ error
 - 未使用 transition → ℹ️ info
 
-## L3
+### L3
 
 - action → L2 transition 不一致 → ❌ error
 
-## L4
+### L4
 
 - screenKey 不一致 → ❌ error
 - event ↔ L2 transition 不一致 → ❌ error
 - query / mutation 未定義参照 → ❌ error
 
-## OpenAPI
+### OpenAPI
 
 - operationId 未定義 → ❌ error
 - 重複 → ❌ error
 - L4 が存在しない operationId 参照 → ❌ error
 - 未使用 operationId → ℹ️ info（構造進捗表示）
 
-## i18n
+### i18n
 
 - key 不存在 → ❌ error
 - 未翻訳（ja以外） → ℹ️ info
 
 ---
 
-# 📂 推奨構成
+## 📂 推奨構成
 
-```
-
+```txt
 specs/
-L2.screenflows/
-L3.ui/
-L4.state/
-i18n/
-
+  L2.screenflows/
+  L3.ui/
+  L4.state/
+  i18n/
 ```
 
 原則：
@@ -135,28 +116,36 @@ i18n/
 
 ---
 
-# ⚙ CLI
+## ⚙ CLI
 
-```
-
-mobilespec validate
+```bash
 mobilespec check
-
+mobilespec update
 ```
 
-CI では：
+### check（CI / read-only）
 
-```
+CI では **check のみ**を実行する（ファイルを生成・更新しない）：
 
+```bash
 pnpm run sdd:check
-
 ```
 
 error が1件でもあれば exit 1。
 
+### update（local / write）
+
+ローカル開発では、仕様変更後に **生成物（i18n / mermaid）を更新してから検証**したい場合がある。
+
+```bash
+pnpm run sdd:update
+```
+
+`update` は i18n / mermaid を更新し、その後に `check` を実行する（副作用あり）。
+
 ---
 
-# 🧠 SDD のゴール
+## 🧠 SDD のゴール
 
 - 実装は破棄可能
 - フレームワーク変更可能
@@ -166,16 +155,15 @@ error が1件でもあれば exit 1。
 
 ---
 
-# 🔥 mobilespec の役割
+## 🔥 mobilespec の役割
 
 > 構造を正とするための検証エンジン
-```
 
 ---
 
-# 📚 詳細ドキュメント構成
+## 📚 詳細ドキュメント構成
 
-```
+```txt
 docs/
   adr/
   01_principles.md

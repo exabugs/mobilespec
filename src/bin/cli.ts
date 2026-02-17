@@ -57,13 +57,6 @@ async function main() {
   const a = parse();
 
   switch (a.cmd) {
-    case 'validate': {
-      const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      const code = reportAndCode(r);
-      if (code === 0) console.log('✅ validate OK');
-      process.exit(code);
-    }
-
     case 'mermaid': {
       await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
       console.log('✅ mermaid OK');

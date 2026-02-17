@@ -15,6 +15,13 @@ infoは無視する。
 
 ---
 
+## CI での実行コマンド（read-only）
+
+CI では **mobilespec check のみ**を実行する。
+`update`（i18n/mermaid 生成）は **CI では実行しない**（read-only を保つため）。
+
+---
+
 ## GitHub Actions例
 
 ```yaml
