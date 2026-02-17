@@ -81,9 +81,20 @@ async function main() {
       const code = reportAndCode(r);
       if (code !== 0) process.exit(code);
 
-      await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      await generateI18n({ specsDir: a.specsDir, schemaDir: a.schemaDir });
       console.log('✅ check OK');
+      process.exit(0);
+    }
+
+    case 'update': {
+      // ローカル向け：まず生成物を更新してから検証する（副作用あり）
+      await generateI18n({ specsDir: a.specsDir, schemaDir: a.schemaDir });
+      await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
+
+      const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
+      const code = reportAndCode(r);
+      if (code !== 0) process.exit(code);
+
+      console.log('✅ update OK');
       process.exit(0);
     }
 
