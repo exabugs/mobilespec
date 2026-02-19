@@ -28,6 +28,7 @@ export type MobileSpecConfig = {
 export type Screen = {
   id: string;
   name: string;
+  type?: 'screen' | 'choice';
   group: string;
   order?: number;
   entry?: boolean;
@@ -40,6 +41,9 @@ export type Transition = {
   toKey: string;
   label?: string;
   self?: boolean;
+  trigger?: 'tap' | 'auto';
+  guard?: string;
+  else?: boolean;
 };
 
 export type UIAction = {

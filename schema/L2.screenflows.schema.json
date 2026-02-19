@@ -21,7 +21,8 @@
         },
         "type": {
           "type": "string",
-          "const": "screen"
+          "enum": ["screen", "choice"],
+          "description": "screen: visible UI screen, choice: invisible branching node (guard-based)"
         },
 
         "context": {
@@ -70,6 +71,16 @@
         "targetContext": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
+        },
+
+        "guard": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Guard condition name (boolean). When present, transition is taken only if guard evaluates true."
+        },
+        "else": {
+          "type": "boolean",
+          "description": "Default branch for choice node. At most one outgoing transition from a choice node may set else=true."
         }
       }
     }

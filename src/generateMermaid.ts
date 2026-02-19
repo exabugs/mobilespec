@@ -8,12 +8,15 @@ type L2 = {
   screen: {
     id: string;
     name: string;
+    type: 'screen' | 'choice';
     context?: string;
     transitions: Array<{
       id: string;
       trigger: 'tap' | 'auto';
       target: string;
       targetContext?: string;
+      guard?: string;
+      else?: boolean;
     }>;
   };
 };
@@ -39,6 +42,7 @@ export async function generateMermaid(options: Options): Promise<void> {
   const screens: Array<{
     id: string;
     name: string;
+    type: L2['screen']['type'];
     group: string;
     transitions: L2['screen']['transitions'];
   }> = [];
@@ -50,6 +54,7 @@ export async function generateMermaid(options: Options): Promise<void> {
     screens.push({
       id: doc.screen.id,
       name: doc.screen.name,
+      type: doc.screen.type,
       group,
       transitions: doc.screen.transitions,
     });
@@ -78,14 +83,29 @@ export async function generateMermaid(options: Options): Promise<void> {
   for (const g of sortedGroupKeys) {
     out += `subgraph ${g}\n`;
     for (const s of groups.get(g)!) {
-      out += `  ${s.id}["${s.id}\\n${s.name}"]\n`;
+      // Mermaid node shapes
+      // - screen: rectangle
+      // - choice: decision (diamond-ish) via curly braces
+      if (s.type === 'choice') {
+        out += `  ${s.id}{"${s.id}\\n${s.name}"}\n`;
+      } else {
+        out += `  ${s.id}["${s.id}\\n${s.name}"]\n`;
+      }
     }
     out += 'end\n\n';
   }
 
   for (const s of screens) {
     for (const t of s.transitions) {
-      out += `${s.id} -->|${t.id}| ${t.target}\n`;
+      const parts: string[] = [];
+      parts.push(`${t.id}/${t.trigger}`);
+      if (typeof t.guard === 'string' && t.guard.trim() !== '') {
+        parts.push(`[${t.guard.trim()}]`);
+      }
+      if (t.else === true) {
+        parts.push('[else]');
+      }
+      out += `${s.id} -->|${parts.join(' ')}| ${t.target}\n`;
     }
   }
 

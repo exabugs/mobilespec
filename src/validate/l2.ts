@@ -50,6 +50,10 @@ export function collectScreensAndTransitions(
     const s: Screen = {
       id: screen.id as string,
       name: screen.name as string,
+      type:
+        screen.type === 'choice' || screen.type === 'screen'
+          ? (screen.type as 'screen' | 'choice')
+          : 'screen',
       group: file.group, // ディレクトリ構造から決定
       order: screenOrder,
       entry: screen.entry === true,
@@ -118,6 +122,9 @@ export function collectScreensAndTransitions(
         fromKey,
         toKey,
         label: transitionId,
+        trigger: (t.trigger as 'tap' | 'auto') ?? undefined,
+        guard: typeof t.guard === 'string' ? t.guard : undefined,
+        else: t.else === true,
         self: fromKey === toKey,
       });
     }
@@ -141,6 +148,68 @@ export function validateTransitions(
   transitions: Transition[]
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+
+  // choice node constraints (guard/else)
+  // - choice から出る遷移は guard または else のいずれかを必須
+  // - else:true は最大 1 本
+  // - choice の outgoing は trigger:auto を推奨（tap は warning）
+  const outgoingByFromKey = new Map<string, Transition[]>();
+  for (const t of transitions) {
+    const arr = outgoingByFromKey.get(t.fromKey) ?? [];
+    arr.push(t);
+    outgoingByFromKey.set(t.fromKey, arr);
+  }
+
+  for (const [key, s] of screens.entries()) {
+    if (s.type !== 'choice') continue;
+    const outs = outgoingByFromKey.get(key) ?? [];
+    if (outs.length === 0) continue;
+
+    const elseCount = outs.filter((t) => t.else === true).length;
+    if (elseCount >= 2) {
+      diagnostics.push({
+        code: 'L2_INVALID',
+        level: 'error',
+        message: `choice screen の else:true 遷移が複数あります（最大1本）: ${displayId(
+          s.id,
+          s.context
+        )}`,
+        meta: { screenKey: key, elseCount },
+      });
+    }
+
+    const missingGuards = outs.filter(
+      (t) => !(typeof t.guard === 'string' && t.guard.trim() !== '') && t.else !== true
+    );
+    if (missingGuards.length) {
+      diagnostics.push({
+        code: 'L2_INVALID',
+        level: 'error',
+        message: `choice screen の遷移には guard または else:true が必要です: ${displayId(
+          s.id,
+          s.context
+        )}`,
+        meta: {
+          screenKey: key,
+          count: missingGuards.length,
+          labels: missingGuards.map((t) => t.label),
+        },
+      });
+    }
+
+    const tapOuts = outs.filter((t) => t.trigger === 'tap');
+    if (tapOuts.length) {
+      diagnostics.push({
+        code: 'L2_INVALID',
+        level: 'error',
+        message: `choice screen の遷移 trigger が tap になっています（推奨: auto）: ${displayId(
+          s.id,
+          s.context
+        )}`,
+        meta: { screenKey: key, count: tapOuts.length, labels: tapOuts.map((t) => t.label) },
+      });
+    }
+  }
 
   const entryKeys: string[] = [];
   for (const [key, s] of screens.entries()) {
