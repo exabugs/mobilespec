@@ -5,9 +5,9 @@ import path from 'path';
 import { openapiCheck } from '../openapiCheck.js';
 import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
+import { loadL2Guards } from './guards.js';
 import { validateI18n } from './i18n.js';
 import { loadYamlFiles } from './io.js';
-import { loadL2Guards } from './guards.js';
 import { collectScreensAndTransitions, validateTransitions } from './l2.js';
 import {
   collectUIActions,

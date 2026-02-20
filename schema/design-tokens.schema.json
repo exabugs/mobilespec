@@ -13,13 +13,11 @@
       "required": ["color", "typography", "spacing", "radius"],
       "additionalProperties": false,
       "properties": {
-
         "color": {
           "type": "object",
           "required": ["primary", "secondary", "background", "surface", "onSurface", "error"],
           "additionalProperties": false,
           "properties": {
-
             "primary": {
               "$ref": "#/$defs/colorScale"
             },
@@ -46,7 +44,6 @@
           "required": ["fontFamily", "scale"],
           "additionalProperties": false,
           "properties": {
-
             "fontFamily": {
               "type": "string",
               "description": "Primary font family name (e.g. 'Noto Sans JP')"
@@ -57,13 +54,13 @@
               "required": ["h1", "h2", "h3", "body1", "body2", "caption", "button"],
               "additionalProperties": false,
               "properties": {
-                "h1":      { "$ref": "#/$defs/textStyle" },
-                "h2":      { "$ref": "#/$defs/textStyle" },
-                "h3":      { "$ref": "#/$defs/textStyle" },
-                "body1":   { "$ref": "#/$defs/textStyle" },
-                "body2":   { "$ref": "#/$defs/textStyle" },
+                "h1": { "$ref": "#/$defs/textStyle" },
+                "h2": { "$ref": "#/$defs/textStyle" },
+                "h3": { "$ref": "#/$defs/textStyle" },
+                "body1": { "$ref": "#/$defs/textStyle" },
+                "body2": { "$ref": "#/$defs/textStyle" },
                 "caption": { "$ref": "#/$defs/textStyle" },
-                "button":  { "$ref": "#/$defs/textStyle" }
+                "button": { "$ref": "#/$defs/textStyle" }
               }
             }
           }
@@ -74,11 +71,11 @@
           "required": ["xs", "sm", "md", "lg", "xl", "xxl"],
           "additionalProperties": false,
           "properties": {
-            "xs":  { "$ref": "#/$defs/positiveNumber" },
-            "sm":  { "$ref": "#/$defs/positiveNumber" },
-            "md":  { "$ref": "#/$defs/positiveNumber" },
-            "lg":  { "$ref": "#/$defs/positiveNumber" },
-            "xl":  { "$ref": "#/$defs/positiveNumber" },
+            "xs": { "$ref": "#/$defs/positiveNumber" },
+            "sm": { "$ref": "#/$defs/positiveNumber" },
+            "md": { "$ref": "#/$defs/positiveNumber" },
+            "lg": { "$ref": "#/$defs/positiveNumber" },
+            "xl": { "$ref": "#/$defs/positiveNumber" },
             "xxl": { "$ref": "#/$defs/positiveNumber" }
           }
         },
@@ -88,20 +85,18 @@
           "required": ["sm", "md", "lg", "xl", "round"],
           "additionalProperties": false,
           "properties": {
-            "sm":    { "$ref": "#/$defs/positiveNumber" },
-            "md":    { "$ref": "#/$defs/positiveNumber" },
-            "lg":    { "$ref": "#/$defs/positiveNumber" },
-            "xl":    { "$ref": "#/$defs/positiveNumber" },
+            "sm": { "$ref": "#/$defs/positiveNumber" },
+            "md": { "$ref": "#/$defs/positiveNumber" },
+            "lg": { "$ref": "#/$defs/positiveNumber" },
+            "xl": { "$ref": "#/$defs/positiveNumber" },
             "round": { "$ref": "#/$defs/positiveNumber" }
           }
         }
-
       }
     }
   },
 
   "$defs": {
-
     "hexColor": {
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$",
@@ -114,8 +109,8 @@
       "additionalProperties": false,
       "properties": {
         "default": { "$ref": "#/$defs/hexColor" },
-        "light":   { "$ref": "#/$defs/hexColor" },
-        "dark":    { "$ref": "#/$defs/hexColor" }
+        "light": { "$ref": "#/$defs/hexColor" },
+        "dark": { "$ref": "#/$defs/hexColor" }
       }
     },
 
@@ -151,6 +146,5 @@
       "minimum": 0,
       "description": "Non-negative number (pixels)"
     }
-
   }
 }
