@@ -20,6 +20,16 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
         },
+        "state": {
+          "type": "object",
+          "description": "画面ローカル状態の定義（キー: 変数名、値: 説明文字列）",
+          "additionalProperties": { "type": "string" }
+        },
+        "dataSource": {
+          "type": "object",
+          "description": "状態の取得元（キー: 変数名、値: 取得元の説明文字列）",
+          "additionalProperties": { "type": "string" }
+        },
         "states": {
           "type": "array",
           "minItems": 0,
@@ -76,9 +86,39 @@
       }
     },
 
+    "mutationOptions": {
+      "type": "object",
+      "description": "TanStack mutation の挙動設定",
+      "additionalProperties": false,
+      "properties": {
+        "idempotent": {
+          "type": "boolean",
+          "description": "POST が冪等（同一キーを何度送っても結果が同じ）かどうか"
+        },
+        "retry": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "失敗時のリトライ回数（TanStack useMutation の retry オプション）"
+        },
+        "retryDelay": {
+          "enum": ["exponential", "linear", "none"],
+          "description": "リトライ間隔の種別。exponential = TanStack デフォルト指数バックオフ（30s 頭打ち）"
+        },
+        "optimistic": {
+          "type": "boolean",
+          "description": "楽観的更新を行うか（type: update のみ有効）"
+        },
+        "errorDisplay": {
+          "enum": ["toast", "inline", "none"],
+          "description": "失敗時のエラー表示方法"
+        }
+      }
+    },
+
     "event": {
       "oneOf": [
         { "$ref": "#/$defs/navigateEvent" },
+        { "$ref": "#/$defs/updateEvent" },
         { "$ref": "#/$defs/callQueryEvent" },
         { "$ref": "#/$defs/callMutationEvent" }
       ]
@@ -90,7 +130,45 @@
       "additionalProperties": false,
       "properties": {
         "type": { "const": "navigate" },
-        "targetScreenId": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        "targetScreenId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "description": {
+          "type": "string",
+          "description": "イベントの動作説明（人間向けメモ）"
+        },
+        "navigateMode": {
+          "enum": ["immediate", "afterSuccess"],
+          "description": "immediate: 即遷移してバックグラウンドで送信（冪等 POST 向け） / afterSuccess: 送信成功後に遷移"
+        },
+        "guard": {
+          "type": "string",
+          "description": "イベントが有効になる条件（screen.conditions のキー）"
+        },
+        "mutation": {
+          "$ref": "#/$defs/mutationOptions"
+        }
+      }
+    },
+
+    "updateEvent": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "update" },
+        "description": {
+          "type": "string",
+          "description": "イベントの動作説明（人間向けメモ）"
+        },
+        "guard": {
+          "type": "string",
+          "description": "イベントが有効になる条件（screen.conditions のキー）"
+        },
+        "mutation": {
+          "$ref": "#/$defs/mutationOptions"
+        }
       }
     },
 
@@ -104,6 +182,10 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
           "description": "screen.data.queries のキー"
+        },
+        "description": {
+          "type": "string",
+          "description": "イベントの動作説明（人間向けメモ）"
         }
       }
     },
@@ -118,6 +200,10 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
           "description": "screen.data.mutations のキー"
+        },
+        "description": {
+          "type": "string",
+          "description": "イベントの動作説明（人間向けメモ）"
         }
       }
     }
