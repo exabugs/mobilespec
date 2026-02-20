@@ -4,6 +4,7 @@ import yaml from 'js-yaml';
 import path from 'path';
 
 type Options = { specsDir: string; schemaDir: string };
+
 type L2 = {
   screen: {
     id: string;
@@ -27,6 +28,13 @@ function loadConfig(specsDir: string): Record<string, unknown> {
   return yaml.load(fs.readFileSync(p, 'utf8')) as Record<string, unknown>;
 }
 
+function escapeMermaidText(s: string): string {
+  // Mermaid node label / subgraph titleで安全な最小エスケープ
+  // - 改行は \n
+  // - " は \"
+  return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
 export async function generateMermaid(options: Options): Promise<void> {
   const cfg = loadConfig(options.specsDir);
   const paths =
@@ -39,6 +47,7 @@ export async function generateMermaid(options: Options): Promise<void> {
   );
 
   const files = fg.sync(['**/*.flow.yaml'], { cwd: L2_DIR, absolute: true });
+
   const screens: Array<{
     id: string;
     name: string;
@@ -64,6 +73,7 @@ export async function generateMermaid(options: Options): Promise<void> {
     cfg.mermaid && typeof cfg.mermaid === 'object' && cfg.mermaid !== null
       ? (((cfg.mermaid as Record<string, unknown>).groupOrder as string[]) ?? [])
       : [];
+
   const groups = new Map<string, typeof screens>();
   for (const s of screens) {
     if (!groups.has(s.group)) groups.set(s.group, []);
@@ -80,32 +90,35 @@ export async function generateMermaid(options: Options): Promise<void> {
   out += '```mermaid\n';
   out += 'flowchart TD\n\n';
 
+  // ---- Nodes grouped by subgraph ----
   for (const g of sortedGroupKeys) {
-    out += `subgraph ${g}\n`;
+    // IMPORTANT: subgraph id must NOT collide with any node id.
+    // If we do `subgraph settings` and have node `settings`, Mermaid can error with a cycle.
+    const subgraphId = `grp_${g}`;
+    const subgraphTitle = escapeMermaidText(g);
+
+    out += `subgraph ${subgraphId}["${subgraphTitle}"]\n`;
+
     for (const s of groups.get(g)!) {
-      // Mermaid node shapes
-      // - screen: rectangle
-      // - choice: decision (diamond-ish) via curly braces
+      const id = s.id;
+      const label = escapeMermaidText(`${s.id}\n${s.name}`);
+
       if (s.type === 'choice') {
-        out += `  ${s.id}{"${s.id}\\n${s.name}"}\n`;
+        out += `  ${id}{"${label}"}\n`;
       } else {
-        out += `  ${s.id}["${s.id}\\n${s.name}"]\n`;
+        out += `  ${id}["${label}"]\n`;
       }
     }
+
     out += 'end\n\n';
   }
 
+  // ---- Edges ----
   for (const s of screens) {
     for (const t of s.transitions) {
-      const parts: string[] = [];
-      parts.push(`${t.id}/${t.trigger}`);
-      if (typeof t.guard === 'string' && t.guard.trim() !== '') {
-        parts.push(`[${t.guard.trim()}]`);
-      }
-      if (t.else === true) {
-        parts.push('[else]');
-      }
-      out += `${s.id} -->|${parts.join(' ')}| ${t.target}\n`;
+      // Mermaid edge labels are fragile: keep them simple (no guard/else markers).
+      const label = escapeMermaidText(`${t.id}/${t.trigger}`);
+      out += `${s.id} -->|${label}| ${t.target}\n`;
     }
   }
 

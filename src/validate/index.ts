@@ -7,6 +7,7 @@ import type { Diagnostic } from '../types/diagnostic.js';
 import { loadConfig } from './config.js';
 import { validateI18n } from './i18n.js';
 import { loadYamlFiles } from './io.js';
+import { loadL2Guards } from './guards.js';
 import { collectScreensAndTransitions, validateTransitions } from './l2.js';
 import {
   collectUIActions,
@@ -63,6 +64,7 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const stateFiles = loadYamlFiles(STATE_DIR, '.state.yaml');
 
   const config = loadConfig(options.specsDir);
+  const { ids: guardIds } = loadL2Guards(options.specsDir);
 
   // -------------------------
   // Schema validation
@@ -92,7 +94,7 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const l2Fatal = l2Collected.diagnostics;
 
   // L2: policy is decided inside l2.ts (error/info)
-  const l2TransitionDiagnostics = validateTransitions(screens, transitions);
+  const l2TransitionDiagnostics = validateTransitions(screens, transitions, guardIds);
 
   // -------------------------
   // L3

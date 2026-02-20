@@ -145,7 +145,8 @@ export function collectScreensAndTransitions(
 
 export function validateTransitions(
   screens: Map<string, Screen>,
-  transitions: Transition[]
+  transitions: Transition[],
+  guardIds: Set<string>
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
@@ -209,6 +210,48 @@ export function validateTransitions(
         meta: { screenKey: key, count: tapOuts.length, labels: tapOuts.map((t) => t.label) },
       });
     }
+  }
+
+  // guard SSOT validation
+  // - if a transition has guard, it must exist in L2.guards.yaml
+  // - unused guard definitions are reported as info
+  const usedGuards = new Set<string>();
+  const unknownGuards: { fromKey: string; label?: string; guard: string }[] = [];
+
+  for (const t of transitions) {
+    if (typeof t.guard !== 'string' || !t.guard.trim()) continue;
+    const g = t.guard.trim();
+    usedGuards.add(g);
+    if (!guardIds.has(g)) {
+      unknownGuards.push({ fromKey: t.fromKey, label: t.label, guard: g });
+    }
+  }
+
+  if (unknownGuards.length) {
+    const samples = unknownGuards
+      .slice(0, 10)
+      .map((x) => `${x.guard} @ ${x.fromKey}${x.label ? `/${x.label}` : ''}`)
+      .join(', ');
+    diagnostics.push({
+      code: 'L2_INVALID',
+      level: 'error',
+      message: `未定義の guard が L2 に指定されています（L2.guards.yaml に定義してください）: ${samples}${
+        unknownGuards.length > 10 ? ` ... +${unknownGuards.length - 10}` : ''
+      }`,
+      meta: { count: unknownGuards.length },
+    });
+  }
+
+  const unused = [...guardIds].filter((g) => !usedGuards.has(g));
+  if (unused.length) {
+    diagnostics.push({
+      code: 'L2_INVALID',
+      level: 'info',
+      message: `L2.guards.yaml の guard が未使用です: ${unused.slice(0, 20).join(', ')}${
+        unused.length > 20 ? ` ... +${unused.length - 20}` : ''
+      }`,
+      meta: { count: unused.length },
+    });
   }
 
   const entryKeys: string[] = [];
