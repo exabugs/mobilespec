@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mobilespec:design-tokens",
+  "title": "Design Tokens Schema",
+  "description": "Framework-agnostic design tokens (color, typography, spacing, radius)",
+  "type": "object",
+  "required": ["tokens"],
+  "additionalProperties": false,
+
+  "properties": {
+    "tokens": {
+      "type": "object",
+      "required": ["color", "typography", "spacing", "radius"],
+      "additionalProperties": false,
+      "properties": {
+
+        "color": {
+          "type": "object",
+          "required": ["primary", "secondary", "background", "surface", "onSurface", "error"],
+          "additionalProperties": false,
+          "properties": {
+
+            "primary": {
+              "$ref": "#/$defs/colorScale"
+            },
+            "secondary": {
+              "$ref": "#/$defs/colorScale"
+            },
+            "background": {
+              "$ref": "#/$defs/hexColor"
+            },
+            "surface": {
+              "$ref": "#/$defs/hexColor"
+            },
+            "onSurface": {
+              "$ref": "#/$defs/hexColor"
+            },
+            "error": {
+              "$ref": "#/$defs/hexColor"
+            }
+          }
+        },
+
+        "typography": {
+          "type": "object",
+          "required": ["fontFamily", "scale"],
+          "additionalProperties": false,
+          "properties": {
+
+            "fontFamily": {
+              "type": "string",
+              "description": "Primary font family name (e.g. 'Noto Sans JP')"
+            },
+
+            "scale": {
+              "type": "object",
+              "required": ["h1", "h2", "h3", "body1", "body2", "caption", "button"],
+              "additionalProperties": false,
+              "properties": {
+                "h1":      { "$ref": "#/$defs/textStyle" },
+                "h2":      { "$ref": "#/$defs/textStyle" },
+                "h3":      { "$ref": "#/$defs/textStyle" },
+                "body1":   { "$ref": "#/$defs/textStyle" },
+                "body2":   { "$ref": "#/$defs/textStyle" },
+                "caption": { "$ref": "#/$defs/textStyle" },
+                "button":  { "$ref": "#/$defs/textStyle" }
+              }
+            }
+          }
+        },
+
+        "spacing": {
+          "type": "object",
+          "required": ["xs", "sm", "md", "lg", "xl", "xxl"],
+          "additionalProperties": false,
+          "properties": {
+            "xs":  { "$ref": "#/$defs/positiveNumber" },
+            "sm":  { "$ref": "#/$defs/positiveNumber" },
+            "md":  { "$ref": "#/$defs/positiveNumber" },
+            "lg":  { "$ref": "#/$defs/positiveNumber" },
+            "xl":  { "$ref": "#/$defs/positiveNumber" },
+            "xxl": { "$ref": "#/$defs/positiveNumber" }
+          }
+        },
+
+        "radius": {
+          "type": "object",
+          "required": ["sm", "md", "lg", "xl", "round"],
+          "additionalProperties": false,
+          "properties": {
+            "sm":    { "$ref": "#/$defs/positiveNumber" },
+            "md":    { "$ref": "#/$defs/positiveNumber" },
+            "lg":    { "$ref": "#/$defs/positiveNumber" },
+            "xl":    { "$ref": "#/$defs/positiveNumber" },
+            "round": { "$ref": "#/$defs/positiveNumber" }
+          }
+        }
+
+      }
+    }
+  },
+
+  "$defs": {
+
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "description": "Hex color code (e.g. '#2E7D32')"
+    },
+
+    "colorScale": {
+      "type": "object",
+      "required": ["default"],
+      "additionalProperties": false,
+      "properties": {
+        "default": { "$ref": "#/$defs/hexColor" },
+        "light":   { "$ref": "#/$defs/hexColor" },
+        "dark":    { "$ref": "#/$defs/hexColor" }
+      }
+    },
+
+    "fontWeight": {
+      "type": "string",
+      "enum": ["thin", "light", "regular", "medium", "semibold", "bold", "extrabold"],
+      "description": "Font weight (thin=100, light=300, regular=400, medium=500, semibold=600, bold=700, extrabold=800)"
+    },
+
+    "textStyle": {
+      "type": "object",
+      "required": ["size", "weight", "lineHeight"],
+      "additionalProperties": false,
+      "properties": {
+        "size": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Font size in dp/pt"
+        },
+        "weight": {
+          "$ref": "#/$defs/fontWeight"
+        },
+        "lineHeight": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Line height multiplier (e.g. 1.5)"
+        }
+      }
+    },
+
+    "positiveNumber": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Non-negative number (pixels)"
+    }
+
+  }
+}
