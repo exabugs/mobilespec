@@ -102,7 +102,9 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const uiActions = collectUIActions(uiFiles);
 
   const l3ScreenErrors = validateL3ScreensExistInL2(uiFiles, screens);
-  const l3L2CrossErrors = validateL3L2Cross(uiActions, transitions);
+  // L4 の画面内イベント（遷移を伴わない）は、L3 の action として L2 に無くてよい
+  const l4Details = collectL4Details(stateFiles);
+  const l3L2CrossErrors = validateL3L2Cross(uiActions, transitions, l4Details);
 
   // L2 unused transitions (by L3) are already aggregated as info in l3.ts
   const l2UnusedDiagnostics = validateL2TransitionsUsedByL3(uiActions, transitions, screens);
@@ -113,7 +115,6 @@ export async function validate(options: ValidateOptions): Promise<ValidationResu
   const stateScreens = collectStateScreens(stateFiles);
   const l4L2Errors = validateL4L2Cross(stateScreens, screens);
 
-  const l4Details = collectL4Details(stateFiles);
   // L4: policy is decided inside l4.ts (error/info)
   const l4EventDiagnostics = validateL4EventsCross(l4Details, transitions, screens);
 

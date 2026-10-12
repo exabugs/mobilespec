@@ -113,6 +113,10 @@ export async function generateMermaid(options: Options): Promise<void> {
     out += 'end\n\n';
   }
 
+  // 予約語 'external'（アプリ外・SDK 管理の遷移先）は、画面ではないので別の形で描く
+  const hasExternal = screens.some((s) => s.transitions.some((t) => t.target === 'external'));
+  if (hasExternal) out += 'external(("external"))\n\n';
+
   // ---- Edges ----
   for (const s of screens) {
     for (const t of s.transitions) {

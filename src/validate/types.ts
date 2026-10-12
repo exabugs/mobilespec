@@ -32,6 +32,8 @@ export type Screen = {
   group: string;
   order?: number;
   entry?: boolean;
+  /** 到達可能性の起点（タブの最上位画面など） */
+  root?: boolean;
   exit?: boolean;
   context?: string;
 };
