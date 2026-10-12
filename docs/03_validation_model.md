@@ -1,47 +1,17 @@
-# Validation Model
+# 検証モデル
 
-mobilespecは2段階のみ採用する。
+error は「実装不能」のものだけ。レイヤーをまたぐ検査は、**参照する側が、参照される側を検証する**。一覧は [design/spec-redesign.md §7](design/spec-redesign.md)。
 
-| level | 意味                |
-| ----- | ------------------- |
-| error | 実装不能（CI fail） |
-| info  | 状態可視化          |
+| 層   | 主な検査                                                                                                   |
+| ---- | ---------------------------------------------------------------------------------------------------------- |
+| 構造 | スキーマ違反、ID・名前の重複、L3 / L4 に対応する L2 が無い、`group` が `app.yaml` に無い                   |
+| 純度 | L4 に遷移の行き先、L2 / L3 に演算子を持つ式、action 付きの部品に `visibleWhen`（正しい置き場所を案内する） |
+| L2   | 起点の有無、到達可能性、`target` の存在、`params` の契約、`auto` の `when` / `else`、参照の存在            |
+| L3   | `action` の解決（同じ画面の L2 の遷移か L4 のイベント）、参照の存在                                        |
+| L4   | `go` の解決、`mutate` / `refetch` の対象、`operationId` と `args`（OpenAPI）、`set` の型、式の構文・循環   |
+| i18n | `ja.json` が古い（error 1 件）。他のロケールの未翻訳は info                                                |
+| info | 未使用の要素、`type: unknown`、散文のみの条件、説明の欠落                                                  |
 
-warningは存在しない。
+診断は `code` / `level` / `file` / `pointer` / `found` / `expected` / `suggest` を持つ（`check --format json`）。
 
----
-
-## errorになる例
-
-- 到達不能screen
-- 不存在screen参照
-- 不存在transition参照
-- 不存在operationId参照
-- selectRoot不正
-- i18n key欠落
-- schema違反（問題のプロパティ名をメッセージに含める）
-- navigateStackの遷移先がL2に存在しない
-
----
-
-## infoになる例
-
-- 未使用transition
-- 画面遷移を伴うイベントとL2 transitionの不一致
-- 未使用operationId
-- 未翻訳キー
-
----
-
-## 重要
-
-検証は途中で停止しない。
-全検査を実行し、最後にerrorがあればexit 1。
-
----
-
-## 出力
-
-- error / info の件数の要約で終わる
-- i18n の欠落（error）・未翻訳（info）は locale ごとに集計して表示する（`--verbose` で全件）
-- 同じ内容の診断は 1 件にまとめる
+式は**解析だけ**で、実行しない（構文エラー、存在しない名前、条件の循環を検出する）。

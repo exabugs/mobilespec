@@ -1,45 +1,25 @@
-# SDD Lifecycle
+# ライフサイクル
 
----
+## 仕様の変更から実装まで
 
-## 1. 体験設計（人間）
+```text
+mobilespec index / context <id>   現状を掴む
+↓ L2 → L3 → L4 の順に仕様を編集
+mobilespec check --screen <id>    診断に従って直す
+mobilespec update                 生成物（ja.json、索引、遷移図）を更新
+↓ 実装
+mobilespec check && mobilespec update --check   CI
+```
 
-- 画面構造設計
-- 遷移設計
-- 状態設計
+## 新しい画面
 
----
+`mobilespec new <id> --group <g>` が、最小の有効な L2 / L3 / L4 を作る。
 
-## 2. 構造記述
+## 旧体系（1.x）から
 
-- L2記述
-- L3記述
-- L4記述
-- OpenAPI更新
+```bash
+mobilespec migrate --specs-dir <旧> --openapi <path>          # dry-run: 変換後の検証結果と TODO を報告
+mobilespec migrate --specs-dir <旧> --to <新しい空のディレクトリ> # 書き出し
+```
 
----
-
-## 3. 構造更新（ローカル）
-
-仕様追加後、i18n / mermaid などの生成物を更新する：
-
-mobilespec update
-
----
-
-## 4. 構造検証（CI / read-only）
-
-mobilespec check
-
----
-
-## 5. 実装生成
-
-AI / Generatorにより生成
-
----
-
-## 6. 実装修正
-
-構造を修正する。
-コードを直接修正しない。
+元のディレクトリは変更しない。TODO（OpenAPI で特定できなかった API、`visibleWhen` の整理、孤立画面など）は人が決める。

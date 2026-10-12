@@ -1,185 +1,63 @@
 # mobilespec
 
-## Structure-Driven Development (SDD) 仕様エンジン
+モバイルアプリの仕様（画面の接続 L2 / UI L3 / 状態・データ L4）を、**構造として検証し、AI と人の両方に渡す**ためのエンジン。
 
-mobilespec は  
-**Structure-Driven Development（構造駆動開発）** を実践するための  
-構造検証・可視化・契約整合エンジンです。
+目的は 2 つ。
 
----
+1. **AI が効率的に動作できる** — 1 画面ぶんの文脈を解決済みで取り出せる。診断は機械可読で、直す場所と候補が付く
+2. **人間向けドキュメントの効率的なソース** — 仕様から Markdown + Mermaid と JSON を生成する。手で書いた図や表を持たない
 
-## 🎯 SDD とは
+構造は 3 層に分かれ、**1 つの事実は 1 か所**にだけ書く（構造的な SSOT）。
 
-SDD は、
+| レイヤー | 持つもの                                                     | 持たないもの                      |
+| -------- | ------------------------------------------------------------ | --------------------------------- |
+| L2       | 画面間の接続（遷移、params、起点）。**接続はここだけを見る** | UI、状態、API                     |
+| L3       | UI の構造、各部品が起動する action                           | 条件の式、遷移の行き先            |
+| L4       | 状態、API の呼び出し、条件（式）、画面内の振る舞い           | 遷移の行き先（`go` で L2 を参照） |
 
-- API 構造（OpenAPI）
-- 画面遷移構造（L2）
-- UI 構成構造（L3）
-- 状態・データ契約構造（L4）
+違反（重複・置き場所の誤り）は error になり、正しい置き場所が案内される。
 
-を **唯一の正（SSOT）** とし、
+## 構成
 
-実装コードを生成物として扱う開発手法です。
-
----
-
-## 🧠 基本原則
-
-1. 構造が正、実装は生成物
-2. OpenAPI は API 契約の唯一の正
-3. L2 / L3 / L4 は UI 契約の唯一の正
-4. URL / HTTP メソッド直書き禁止
-5. L4 は operationId のみ参照
-6. selectRoot は必須（OpenAPI で証明可能であること）
-7. 契約違反は CI が検知する（AIは検知しない）
-
----
-
-## 🔎 診断ポリシー（固定）
-
-mobilespec は **2段階のみ** を採用する。
-
-| level | 意味                   |
-| ----- | ---------------------- |
-| error | 実装不能（CI fail）    |
-| info  | 状態可視化（常時表示） |
-
-warning は使用しない。
-
----
-
-## 🔗 構造接続ルール
-
-```txt
-L3.action
-↓
-L2.transition.id
-↓
-L4.events key
-↓
-L4.data (query/mutation key)
-↓
-OpenAPI.operationId
-```
-
-この縦接続が成立している状態を  
-**Structural Integrity（構造整合）** と呼ぶ。
-
----
-
-## 📐 検証内容
-
-### L2
-
-- screen 重複
-- 遷移ターゲット不正
-- entry から到達不能 screen → ❌ error
-- 未使用 transition → ℹ️ info
-
-### L3
-
-- action が、L2 の transition.id にも、同じ画面の L4 の画面内イベントにも一致しない → ❌ error
-- `headerRight` とメニュー項目（`menu[].action`）の action も検査する
-
-### L4
-
-- screenKey 不一致 → ❌ error
-- 画面遷移を伴うイベント（`navigate` / `navigateStack`）と L2 transition の不一致 → ℹ️ info（状態）
-- `navigateStack` の steps が、L2 に存在しない画面を参照 → ❌ error
-- query / mutation 未定義参照 → ❌ error
-- スキーマ違反 → ❌ error（どのプロパティが問題かをメッセージに含める）
-
-### OpenAPI
-
-- operationId 未定義 → ❌ error
-- 重複 → ❌ error
-- L4 が存在しない operationId 参照 → ❌ error
-- 未使用 operationId → ℹ️ info（構造進捗表示）
-
-### i18n
-
-- key 不存在 → ❌ error
-- 未翻訳（ja以外） → ℹ️ info
-
----
-
-## 🧩 画面内イベントと遷移
-
-L4 のイベントは、画面遷移を伴うものと、伴わないもの（**画面内イベント**）に分かれる。
-
-| type                                                                 | 種別           | L2 の transition                      |
-| -------------------------------------------------------------------- | -------------- | ------------------------------------- |
-| `navigate` / `navigateStack`                                         | 画面遷移       | 必要（`navigate` は L2 の遷移に対応） |
-| `update` / `updateState` / `callQuery` / `callMutation` / `external` | 画面内イベント | 不要                                  |
-
-L3 の action は、L2 の transition.id **または** 同じ画面の L4 の画面内イベントのキーと一致すればよい。
-
-アプリ外（SDK・OS）に処理を委ねるときの書き分け:
-
-- 画面の遷移として表すなら、L2 の `target: external`（遷移図に出る）
-- 画面内の処理として表すなら、L4 の `external` イベント（遷移図に出ない）
-
-`external` は予約語で、screen.id には使えない。拡張用の `x-` で始まるプロパティは、L3・L4 の screen に書ける（検証しない）。
-
----
-
-## 📂 推奨構成
-
-```txt
+```text
 specs/
-  L2.screenflows/
-  L3.ui/
-  L4.state/
-  i18n/
+  app.yaml                           version: 2 / groups / locales / openapi / facts
+  L2.screenflows/**/<id>.flow.yaml   画面の ID はファイル名
+  L3.ui/**/<id>.ui.yaml
+  L4.state/**/<id>.state.yaml
+  i18n/ja.json                       生成物（手で編集しない）
+  .mobilespec/                       生成物（索引・遷移図）
 ```
 
-原則：
+仕様の書き方は [docs/LLM_SPEC.md](docs/LLM_SPEC.md)（`mobilespec guide` で出力）。設計の背景は [docs/design/spec-redesign.md](docs/design/spec-redesign.md)。
 
-> 1 screen = 1 file
-
----
-
-## ⚙ CLI
+## CLI
 
 ```bash
-mobilespec check
-mobilespec update
+mobilespec check [--screen <id>] [--format json] [--verbose]   # 検証（read-only）。error があれば終了コード 1
+mobilespec index                                               # 全体の索引（AI 向け）
+mobilespec context <screen-id> [--format json] [--docs]        # 1 画面の文脈（AI 向け）
+mobilespec new <screen-id> --group <g> [--name <ja>]           # 最小の有効な画面
+mobilespec guide                                               # AI 向けの短い仕様
+mobilespec update [--check]                                    # 生成物の更新 / 最新かの検査
+mobilespec docs [--out <dir>]                                  # 人間向けドキュメント（Markdown + Mermaid）
+mobilespec export                                              # 全体の機械可読モデル（JSON）
+mobilespec migrate [--to <dir>]                                # 旧体系（1.x）→ version 2。--to なしは dry-run
 ```
 
-### check（CI / read-only）
+共通: `--specs-dir <dir>`（既定: カレント）、`--openapi <path>`（カレント基準）、`--schema-dir <dir>`。
 
-CI では **check のみ**を実行する（ファイルを生成・更新しない）：
+## 診断
 
-```bash
-pnpm run sdd:check
-```
+error は「実装不能」のものだけ。`info` は状況の可視化（CI を落とさない）。warning はない。
 
-error が1件でもあれば exit 1。
+`check --format json` の各診断は `code` / `level` / `file` / `pointer` / `found` / `expected` / `suggest` を持つ。`file` + `pointer` が直す場所、`suggest` が最も近い有効な候補。
 
-オプション:
+## 1.x からの移行
 
-- `--specs-dir <dir>` 仕様ディレクトリ
-- `--schema-dir <dir>` スキーマ（既定はパッケージ同梱）
-- `--openapi <path>`（`openapi-check`）カレントディレクトリ基準の相対パス。config の `openapi.path` は仕様ディレクトリ基準
-- `--verbose` i18n の診断を集計せず、全件表示
+version 2 は**破壊的変更**を含む（ファイルの書式、`context` の廃止、guard の `facts` への統合など）。`mobilespec migrate` が変換する。決められないものは TODO として報告し、コメントは `x-legacyComments` に残す。1.x に留まる利用側は `~1.1.8` に固定する。
 
-出力は、error / info の件数の要約で終わる。i18n の欠落・未翻訳は locale ごとに集計して表示する。
-
-### update（local / write）
-
-ローカル開発では、仕様変更後に **生成物（i18n / mermaid）を更新してから検証**したい場合がある。
-
-```bash
-pnpm run sdd:update
-```
-
-`update` は i18n / mermaid を更新し、その後に `check` を実行する（副作用あり）。
-
----
-
-## 🔁 CI（GitHub Actions）
-
-利用側のリポジトリから、再利用ワークフローを呼べる：
+## CI
 
 ```yaml
 jobs:
@@ -190,40 +68,8 @@ jobs:
       openapi_path: docs/specs/openapi.bundled.yaml # 任意（リポジトリのルートからの相対パス）
 ```
 
-公開済みの `@exabugs/mobilespec` を使う（バージョンは `mobilespec_version` で固定できる）。
+CI は `check` と `update --check` だけを実行する（ファイルを書かない）。
 
----
+## ドキュメント
 
-## 🧠 SDD のゴール
-
-- 実装は破棄可能
-- フレームワーク変更可能
-- AI は構造のみ読めば生成可能
-- 契約違反は自動検知
-- トークン消費最小
-
----
-
-## 🔥 mobilespec の役割
-
-> 構造を正とするための検証エンジン
-
----
-
-## 📚 詳細ドキュメント構成
-
-```txt
-docs/
-  adr/
-  01_principles.md
-  02_structure_model.md
-  03_validation_model.md
-  04_ci_policy.md
-  05_lifecycle.md
-  06_ai_collaboration.md
-  07_configuration.md
-```
-
-README は「入口」。
-
-詳細は docs/ 以下へ。
+[docs/01_principles.md](docs/01_principles.md)（原則）、[02_structure_model.md](docs/02_structure_model.md)（構造）、[03_validation_model.md](docs/03_validation_model.md)（検証）、[04_ci_policy.md](docs/04_ci_policy.md)、[05_lifecycle.md](docs/05_lifecycle.md)、[06_ai_collaboration.md](docs/06_ai_collaboration.md)、[07_configuration.md](docs/07_configuration.md)。
