@@ -41,12 +41,22 @@ export function collectStateScreens(stateFiles: YamlFile[]): Set<string> {
   return stateScreens;
 }
 
+/** 画面内イベントの type（画面遷移を伴わない） */
+const LOCAL_EVENT_TYPES = new Set([
+  'update',
+  'updateState',
+  'callQuery',
+  'callMutation',
+  'external',
+]);
+
 /**
  * 画面内イベントか（画面遷移を伴わないイベント）。
- * navigate / navigateStack は L2 の遷移に対応するが、それ以外は L2 に載せなくてよい。
+ * navigate / navigateStack は L2 の遷移に対応するが、これらは L2 に載せなくてよい。
+ * 許可する type を列挙している（type の綴り誤りが、照合を素通りしないように）。
  */
 export function isLocalEventType(type: unknown): boolean {
-  return typeof type === 'string' && type !== 'navigate' && type !== 'navigateStack';
+  return typeof type === 'string' && LOCAL_EVENT_TYPES.has(type);
 }
 
 /* ================================

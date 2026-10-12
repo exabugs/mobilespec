@@ -20,10 +20,10 @@ on:
         required: true
 
       mobilespec_version:
-        description: '使う @exabugs/mobilespec のバージョン（例: 1.2.0）。既定は latest'
+        description: '使う @exabugs/mobilespec のバージョン（例: 1.2.0 / 1）。既定は 1（1.x の最新。メジャーの更新で CI が黙って壊れないようにする）'
         type: string
         required: false
-        default: latest
+        default: '1'
 
       schema_dir:
         description: 'スキーマのディレクトリ。空なら、パッケージ同梱のスキーマを使う'
@@ -32,7 +32,7 @@ on:
         default: ''
 
       openapi_path:
-        description: 'OpenAPI（bundled）のパス。リポジトリのルートからの相対パス。空なら openapi-check を実行しない'
+        description: 'OpenAPI（bundled）のパス。リポジトリのルートからの相対パス（mobilespec 1.2 以降。それ未満では仕様ディレクトリ基準）。空なら openapi-check を実行しない'
         type: string
         required: false
         default: ''

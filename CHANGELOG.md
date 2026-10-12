@@ -22,6 +22,14 @@
 - 再利用ワークフロー `sdd-check.yml` を、公開済みの `@exabugs/mobilespec` を使う形に作り直した（従来は利用側のリポジトリで `npm run build` を実行しており、動かなかった）。`fail_on_warnings` は効果なし（warning は存在しない方針）
 - 自身の CI を pnpm にし、lint・format check を追加。テストの失敗が CI の失敗になるようにした（従来は `continue-on-error`）
 
+### 出力・ワークフローの変更（利用側の確認事項）
+
+- CLI の出力が変わった: 最後に error / info の件数の要約行を出す。i18n の欠落・未翻訳は locale ごとの集計になった（key ごとに grep しているスクリプトは `--verbose` を使う）。終了コードと、成功時の最後の行（`✅ check OK`）は変わらない
+- 再利用ワークフロー `sdd-check.yml`: `mobilespec_version`（既定 `1` = 1.x の最新）を追加。`schema_dir` の既定は空（パッケージ同梱のスキーマ）、`upload_artifacts` の既定は `false`（`check` は生成物を作らないため）。`openapi_path` はリポジトリのルートからの相対パス（1.2 以降）
+- `headerRight` と `menu[].label` の文言を、i18n の検査・生成（`update`）の対象にした。キーは `…component.<id>.label`（部品名・メニュー項目の id）
+- 予約語 `external` を screen.id にすると error（1.1.x では有効な id だった。遷移先が曖昧になるため）
+- 画面内イベントとみなす type は列挙（update / updateState / callQuery / callMutation / external）。綴り誤りは、L3 の照合を素通りしない
+
 ### Fixed
 
 - README の「event ↔ L2 transition 不一致 → error」は実装と違っていた（info）。文書を実装に合わせた

@@ -69,6 +69,17 @@ export function collectScreensAndTransitions(
     // 現状は未使用なので保持だけ（将来拡張向け）
     void groupOrderMap;
 
+    // 'external' は予約語（アプリ外の遷移先）。画面 id にすると、遷移先が曖昧になる
+    if (s.id === EXTERNAL_TARGET) {
+      errors.push({
+        code: 'L2_INVALID',
+        level: 'error',
+        message: `screen.id "${EXTERNAL_TARGET}" は予約語です（アプリ外・SDK 管理の遷移先）。別の id にしてください`,
+        meta: { screenId: s.id },
+      });
+      continue;
+    }
+
     const key = screenKey(s.id, s.context);
     if (screens.has(key)) {
       errors.push(duplicateScreenId(key, s.id, s.context));

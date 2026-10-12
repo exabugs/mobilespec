@@ -79,7 +79,7 @@ screen:
       type: navigate
       targetScreenId: tasks
       params:
-        initialTab: nearby
+        tab: first
     start_flow:
       type: navigateStack
       steps:
@@ -193,26 +193,117 @@ screen:
 
   it('headerRight のメニュー項目の action も検査される（typo は error、正しければ OK）', async () => {
     const make = (action: string) =>
-      setup({
-        l3: {
-          'home.ui.yaml': l3Home(`  headerRight:
+      setup(
+        {
+          l3: {
+            'home.ui.yaml': l3Home(`  headerRight:
     - component: IconButton
       id: btn_more
       name: メニュー
       props:
-        icon: dots-vertical
+        icon: menu
       menu:
         - id: menu_tasks
-          icon: history
+          icon: clock
           label: タスク
           action: ${action}`),
+          },
         },
-      });
+        ['app.screen.home.component.btn_more.label', 'app.screen.home.component.menu_tasks.label']
+      );
 
     expect(await messages(make('open_tasks'))).toEqual([]);
 
     const r = await validate({ specsDir: make('open_tasks_typo'), schemaDir });
     expect(findByCode(r, 'L3_ACTION_NOT_IN_L2')?.meta?.action).toBe('open_tasks_typo');
+  });
+
+  it('headerRight の部品名とメニュー項目の文言は、i18n の対象（キーが無ければ error）', async () => {
+    const specsDir = setup({
+      l3: {
+        'home.ui.yaml': l3Home(`  headerRight:
+    - component: IconButton
+      id: btn_more
+      name: メニュー
+      menu:
+        - id: menu_tasks
+          label: タスク
+          action: open_tasks`),
+      },
+    });
+
+    const all = (await messages(specsDir)).join('\n');
+    expect(all).toContain('app.screen.home.component.btn_more.label');
+    expect(all).toContain('app.screen.home.component.menu_tasks.label');
+  });
+
+  it('別の画面の画面内イベント名は、この画面の action としては通らない', async () => {
+    const specsDir = setup(
+      {
+        l3: {
+          'home.ui.yaml': l3Home(
+            '',
+            `      - component: Button
+        id: btn_x
+        name: X
+        action: only_in_tasks`
+          ),
+          'tasks.ui.yaml': `
+screen:
+  id: tasks
+  layout:
+    type: column
+    children: []
+`,
+        },
+        l4: {
+          'tasks.state.yaml': `
+screen:
+  id: tasks
+  events:
+    only_in_tasks:
+      type: update
+`,
+        },
+      },
+      ['app.screen.home.component.btn_x.label']
+    );
+
+    const r = await validate({ specsDir, schemaDir });
+    expect(findByCode(r, 'L3_ACTION_NOT_IN_L2')?.meta?.action).toBe('only_in_tasks');
+  });
+
+  it('type の綴り誤りは、画面内イベントとして通らない', async () => {
+    const specsDir = setup(
+      {
+        l3: {
+          'home.ui.yaml': l3Home(
+            '',
+            `      - component: Button
+        id: btn_x
+        name: X
+        action: do_it`
+          ),
+        },
+        l4: {
+          'home.state.yaml': `
+screen:
+  id: home
+  events:
+    open_tasks:
+      type: navigate
+      targetScreenId: tasks
+    do_it:
+      type: updat
+`,
+        },
+      },
+      ['app.screen.home.component.btn_x.label']
+    );
+
+    const r = await validate({ specsDir, schemaDir });
+    expect(findByCode(r, 'L3_ACTION_NOT_IN_L2')?.meta?.action).toBe('do_it');
+    expect((await messages(specsDir)).join('\n')).toContain('許可:');
   });
 
   it('repeatFrom は、キャメルケースやドット区切りの参照を許す。states も書ける', async () => {
@@ -226,13 +317,13 @@ screen:
     sending:
       description: 送信中`,
             `      - component: List
-        id: list_log
+        id: list_items
         name: ログ
-        repeatFrom: writeLog.items`
+        repeatFrom: logItems.entries`
           ),
         },
       },
-      ['app.screen.home.component.list_log.label']
+      ['app.screen.home.component.list_items.label']
     );
 
     expect(await messages(specsDir)).toEqual([]);
@@ -264,7 +355,7 @@ screen:
         l3: {
           'home.ui.yaml': l3Home(
             '',
-            `      - component: AdCard
+            `      - component: Banner
         id: ad
         name: 広告
         action: open_ad`
@@ -280,22 +371,128 @@ screen:
   it('root: true の画面（タブの最上位など）は、entry から辿れなくても到達不能にならない', async () => {
     const orphan = (root: string) => `
 screen:
-  id: ranking
-  name: ランキング
+  id: leaders
+  name: リーダー
   type: screen
 ${root}
   exit: true
   transitions: []
 `;
-    const without = setup({ l2: { 'ranking.flow.yaml': orphan('') } }, [
-      'app.screen.ranking.title',
+    const without = setup({ l2: { 'leaders.flow.yaml': orphan('') } }, [
+      'app.screen.leaders.title',
     ]);
     expect((await messages(without)).join('\n')).toContain('到達不能');
 
-    const withRoot = setup({ l2: { 'ranking.flow.yaml': orphan('  root: true') } }, [
-      'app.screen.ranking.title',
+    const withRoot = setup({ l2: { 'leaders.flow.yaml': orphan('  root: true') } }, [
+      'app.screen.leaders.title',
     ]);
     expect(await messages(withRoot)).toEqual([]);
+  });
+});
+
+describe('L4 / L2 の負例と予約語', () => {
+  it('updateState に field が無い、external に未定義のプロパティがある、は error', async () => {
+    const specsDir = setup({
+      l4: {
+        'home.state.yaml': `
+screen:
+  id: home
+  events:
+    open_tasks:
+      type: navigate
+      targetScreenId: tasks
+    a:
+      type: updateState
+    b:
+      type: external
+      surprise: 1
+`,
+      },
+    });
+
+    const all = (await messages(specsDir)).join('\n');
+    expect(all).toContain('必須プロパティ "field"');
+    expect(all).toContain('未定義のプロパティ "surprise"');
+  });
+
+  it('screen.id に予約語 external は使えない', async () => {
+    const specsDir = setup(
+      {
+        l2: {
+          'external.flow.yaml': `
+screen:
+  id: external
+  name: 外部
+  type: screen
+  exit: true
+  transitions: []
+`,
+        },
+      },
+      ['app.screen.external.title']
+    );
+
+    expect((await messages(specsDir)).join('\n')).toContain('予約語');
+  });
+});
+
+describe('回帰: 従来（1.1.x）の書き方は、そのまま受理される', () => {
+  it('update の guard / mutation、callQuery / callMutation の追加プロパティ、sort された navigate', async () => {
+    const specsDir = setup({
+      l4: {
+        'home.state.yaml': `
+screen:
+  id: home
+  state:
+    count: 件数
+  dataSource:
+    items: 一覧
+  states:
+    - id: idle
+      name: 待機
+      initial: true
+  conditions:
+    can_go: items.length > 0
+  data:
+    queries:
+      list_items:
+        operationId: listItems
+        selectRoot: items
+    mutations:
+      save_item:
+        operationId: saveItem
+  events:
+    open_tasks:
+      type: navigate
+      targetScreenId: tasks
+      navigateMode: afterSuccess
+      guard: can_go
+      mutation:
+        idempotent: true
+        retry: 2
+        retryDelay: exponential
+        optimistic: false
+        errorDisplay: toast
+    refresh:
+      type: update
+      guard: can_go
+      description: 再読み込み
+      mutation:
+        optimistic: true
+    load:
+      type: callQuery
+      query: list_items
+      anything: 追加プロパティは従来どおり許可
+    save:
+      type: callMutation
+      mutation: save_item
+      anything: 追加プロパティは従来どおり許可
+`,
+      },
+    });
+
+    const r = await validate({ specsDir, schemaDir });
+    expect(errorsOf(r).filter((d) => d.code === 'L4_INVALID')).toEqual([]);
   });
 });
 
@@ -306,7 +503,7 @@ describe('診断の質', () => {
         'home.state.yaml': `
 screen:
   id: home
-  bleFlow: 手順
+  unknownProp: 手順
   events:
     open_tasks:
       type: navigate
@@ -316,7 +513,7 @@ screen:
     });
 
     const all = (await messages(specsDir)).join('\n');
-    expect(all).toContain('未定義のプロパティ "bleFlow"');
+    expect(all).toContain('未定義のプロパティ "unknownProp"');
   });
 
   it('イベントの余分なプロパティは、type が一致した定義のエラーだけが出る（oneOf のノイズなし）', async () => {
@@ -471,5 +668,33 @@ mermaid:
     const md = fs.readFileSync(path.join(specsDir, 'flows.md'), 'utf8');
     expect(md).toContain('external(("external"))');
     expect(md).toContain('home -->|open_ad/tap| external');
+  });
+});
+
+describe('i18n 生成（update）: headerRight とメニュー項目', () => {
+  it('部品名とメニュー項目の文言が ja.json に入り、他の locale には空文字で追加される', async () => {
+    const specsDir = setup({
+      l3: {
+        'home.ui.yaml': l3Home(`  headerRight:
+    - component: IconButton
+      id: btn_more
+      name: メニュー
+      menu:
+        - id: menu_tasks
+          label: タスク
+          action: open_tasks`),
+      },
+    });
+
+    const { generateI18n } = await import('../src/generateI18n.js');
+    await generateI18n({ specsDir, schemaDir });
+
+    const ja = JSON.parse(fs.readFileSync(path.join(specsDir, 'i18n', 'ja.json'), 'utf8'));
+    const en = JSON.parse(fs.readFileSync(path.join(specsDir, 'i18n', 'en.json'), 'utf8'));
+    expect(ja['app.screen.home.component.btn_more.label']).toBe('メニュー');
+    expect(ja['app.screen.home.component.menu_tasks.label']).toBe('タスク');
+    // 既存の翻訳は保たれ、新しいキーは空文字（未翻訳）で追加される
+    expect(en['app.screen.home.title']).toBe('Home');
+    expect(en['app.screen.home.component.menu_tasks.label']).toBe('');
   });
 });

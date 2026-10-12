@@ -4,6 +4,8 @@ import yaml from 'js-yaml';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { headerRightEntries, menuLabelsOf } from './validate/i18nNodes.js';
+
 /**
  * i18n key rules (v1)
  * - L2 screen.name => app.screen.<screenId>[.ctx.<context>].title
@@ -244,7 +246,20 @@ export async function generateI18n(options: Options): Promise<void> {
         ja[key] = name;
         usedKeys.add(key);
       }
+      // メニュー項目の文言（menu[].label）
+      for (const m of menuLabelsOf(node)) {
+        const key = `${screenPrefix(screenId, context)}.component.${m.id}.label`;
+        ja[key] = m.text;
+        usedKeys.add(key);
+      }
     });
+
+    // headerRight（layout の外）の部品名とメニュー項目の文言
+    for (const e of headerRightEntries(screen as Record<string, unknown>)) {
+      const key = `${screenPrefix(screenId, context)}.component.${e.id}.label`;
+      ja[key] = e.text;
+      usedKeys.add(key);
+    }
   }
 
   // Write back ja
