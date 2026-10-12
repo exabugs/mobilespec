@@ -8,7 +8,8 @@ import { fileURLToPath } from 'url';
 import { generateI18n } from '../generateI18n.js';
 import { generateMermaid } from '../generateMermaid.js';
 import { openapiCheck } from '../openapiCheck.js';
-import { errorsOf, infosOf } from '../types/diagnostic.js';
+import { resolveOpenapiPath } from '../openapiPath.js';
+import { buildReport } from '../report.js';
 import type { HasDiagnostics } from '../types/diagnostic.js';
 import { loadConfig } from '../validate/config.js';
 import { validate } from '../validate/index.js';
@@ -22,6 +23,7 @@ type Args = {
   specsDir: string;
   schemaDir: string;
   openapiPath?: string;
+  verbose: boolean;
 };
 
 function getArg(args: string[], key: string): string | undefined {
@@ -36,21 +38,18 @@ function parse(): Args {
   const specsDir = getArg(args, '--specs-dir') ?? process.cwd();
   const schemaDir = getArg(args, '--schema-dir') ?? DEFAULT_SCHEMA_DIR;
   const openapiPath = getArg(args, '--openapi');
-  return { cmd, specsDir, schemaDir, openapiPath };
+  const verbose = args.includes('--verbose');
+  return { cmd, specsDir, schemaDir, openapiPath, verbose };
 }
 
-function reportAndCode(result: HasDiagnostics): number {
-  const errors = errorsOf(result);
-  const infos = infosOf(result);
+function reportAndCode(result: HasDiagnostics, verbose: boolean): number {
+  const report = buildReport(result.diagnostics, { verbose });
 
-  for (const e of errors) console.error(`❌ ${e.message}`);
-  for (const i of infos) console.log(`ℹ️ ${i.message}`);
+  for (const line of report.errors) console.error(line);
+  for (const line of report.infos) console.log(line);
+  console.log(report.summary);
 
-  return errors.length ? 1 : 0;
-}
-
-function resolveOpenapiPath(specsDir: string, raw: string): string {
-  return path.isAbsolute(raw) ? raw : path.resolve(specsDir, raw);
+  return report.errorCount ? 1 : 0;
 }
 
 async function main() {
@@ -71,7 +70,7 @@ async function main() {
 
     case 'check': {
       const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      const code = reportAndCode(r);
+      const code = reportAndCode(r, a.verbose);
       if (code !== 0) process.exit(code);
 
       console.log('✅ check OK');
@@ -84,7 +83,7 @@ async function main() {
       await generateMermaid({ specsDir: a.specsDir, schemaDir: a.schemaDir });
 
       const r = await validate({ specsDir: a.specsDir, schemaDir: a.schemaDir });
-      const code = reportAndCode(r);
+      const code = reportAndCode(r, a.verbose);
       if (code !== 0) process.exit(code);
 
       console.log('✅ update OK');
@@ -93,10 +92,12 @@ async function main() {
 
     case 'openapi-check': {
       const cfg = loadConfig(a.specsDir);
-      const raw =
-        (typeof a.openapiPath === 'string' && a.openapiPath.trim() !== ''
+      const flagRaw =
+        typeof a.openapiPath === 'string' && a.openapiPath.trim() !== ''
           ? a.openapiPath
-          : undefined) ??
+          : undefined;
+      const raw =
+        flagRaw ??
         (typeof cfg.openapi?.path === 'string' && cfg.openapi.path.trim() !== ''
           ? cfg.openapi.path
           : undefined);
@@ -106,7 +107,7 @@ async function main() {
         process.exit(1);
       }
 
-      const resolved = resolveOpenapiPath(a.specsDir, raw);
+      const resolved = resolveOpenapiPath(a.specsDir, raw, flagRaw !== undefined);
       if (!fs.existsSync(resolved)) {
         console.error(`❌ OpenAPI が見つかりません: ${resolved}`);
         process.exit(1);
@@ -118,7 +119,7 @@ async function main() {
         openapiPath: resolved,
       });
 
-      const code = reportAndCode(r);
+      const code = reportAndCode(r, a.verbose);
       if (code === 0) console.log('✅ openapi-check OK');
       process.exit(code);
     }

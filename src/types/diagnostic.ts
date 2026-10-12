@@ -82,7 +82,8 @@ export function infosOf(r: HasDiagnostics): Diagnostic[] {
  * Backward compatible helper.
  * - warnings are not used by policy, so this always returns [].
  */
-export function warningsOf(_: HasDiagnostics): Diagnostic[] {
+export function warningsOf(result: HasDiagnostics): Diagnostic[] {
+  void result;
   return [];
 }
 
