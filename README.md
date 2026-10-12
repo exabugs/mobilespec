@@ -78,13 +78,16 @@ OpenAPI.operationId
 
 ### L3
 
-- action → L2 transition 不一致 → ❌ error
+- action が、L2 の transition.id にも、同じ画面の L4 の画面内イベントにも一致しない → ❌ error
+- `headerRight` とメニュー項目（`menu[].action`）の action も検査する
 
 ### L4
 
 - screenKey 不一致 → ❌ error
-- event ↔ L2 transition 不一致 → ❌ error
+- 画面遷移を伴うイベント（`navigate` / `navigateStack`）と L2 transition の不一致 → ℹ️ info（状態）
+- `navigateStack` の steps が、L2 に存在しない画面を参照 → ❌ error
 - query / mutation 未定義参照 → ❌ error
+- スキーマ違反 → ❌ error（どのプロパティが問題かをメッセージに含める）
 
 ### OpenAPI
 
@@ -97,6 +100,19 @@ OpenAPI.operationId
 
 - key 不存在 → ❌ error
 - 未翻訳（ja以外） → ℹ️ info
+
+---
+
+## 🧩 画面内イベントと遷移
+
+L4 のイベントは、画面遷移を伴うものと、伴わないもの（**画面内イベント**）に分かれる。
+
+| type                                                                 | 種別           | L2 の transition                      |
+| -------------------------------------------------------------------- | -------------- | ------------------------------------- |
+| `navigate` / `navigateStack`                                         | 画面遷移       | 必要（`navigate` は L2 の遷移に対応） |
+| `update` / `updateState` / `callQuery` / `callMutation` / `external` | 画面内イベント | 不要                                  |
+
+L3 の action は、L2 の transition.id **または** 同じ画面の L4 の画面内イベントのキーと一致すればよい。
 
 ---
 
@@ -133,6 +149,15 @@ pnpm run sdd:check
 
 error が1件でもあれば exit 1。
 
+オプション:
+
+- `--specs-dir <dir>` 仕様ディレクトリ
+- `--schema-dir <dir>` スキーマ（既定はパッケージ同梱）
+- `--openapi <path>`（`openapi-check`）カレントディレクトリ基準の相対パス。config の `openapi.path` は仕様ディレクトリ基準
+- `--verbose` i18n の診断を集計せず、全件表示
+
+出力は、error / info の件数の要約で終わる。i18n の欠落・未翻訳は locale ごとに集計して表示する。
+
 ### update（local / write）
 
 ローカル開発では、仕様変更後に **生成物（i18n / mermaid）を更新してから検証**したい場合がある。
@@ -142,6 +167,23 @@ pnpm run sdd:update
 ```
 
 `update` は i18n / mermaid を更新し、その後に `check` を実行する（副作用あり）。
+
+---
+
+## 🔁 CI（GitHub Actions）
+
+利用側のリポジトリから、再利用ワークフローを呼べる：
+
+```yaml
+jobs:
+  sdd:
+    uses: exabugs/mobilespec/.github/workflows/sdd-check.yml@main
+    with:
+      specs_dir: specs/mobile
+      openapi_path: docs/specs/openapi.bundled.yaml # 任意（リポジトリのルートからの相対パス）
+```
+
+公開済みの `@exabugs/mobilespec` を使う（バージョンは `mobilespec_version` で固定できる）。
 
 ---
 

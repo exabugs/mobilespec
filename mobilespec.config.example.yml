@@ -34,4 +34,5 @@ openapi:
   # OpenAPI spec path used for OpenAPI ↔ L4 validation.
   # - Absolute path is allowed.
   # - Relative path is resolved from the specs directory (where this config is placed).
+  #   (`--openapi` on the CLI is relative to the current directory instead.)
   path: ../../docs/specs/openapi.bundled.yaml

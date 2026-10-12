@@ -42,6 +42,8 @@ No HTTP literal usage.
 
 ## L2
 
+- `external` target = outside the app (no screen needed)
+- `root: true` screen = reachability root (e.g. tab roots)
 - screen.id unique
 - context creates variants
 - entry may be multiple
@@ -49,13 +51,15 @@ No HTTP literal usage.
 
 ## L3
 
-- action MUST equal L2.transition.id
+- action MUST equal L2.transition.id OR an L4 local event key (update/updateState/callQuery/callMutation/external) of the same screen
 - screen MUST exist in L2
 
 ## L4
 
 - screenKey MUST exist in L2
-- events keys MUST match L2.transition.id
+- navigate/navigateStack event keys SHOULD match L2.transition.id (mismatch is info)
+- local events (update/updateState/callQuery/callMutation/external) need no L2 transition
+- navigateStack steps[].targetScreenId MUST exist in L2
 - callQuery.query MUST exist in data.queries
 - callMutation.mutation MUST exist in data.mutations
 

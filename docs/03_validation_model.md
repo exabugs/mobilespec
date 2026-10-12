@@ -19,13 +19,15 @@ warningは存在しない。
 - 不存在operationId参照
 - selectRoot不正
 - i18n key欠落
-- schema違反
+- schema違反（問題のプロパティ名をメッセージに含める）
+- navigateStackの遷移先がL2に存在しない
 
 ---
 
 ## infoになる例
 
 - 未使用transition
+- 画面遷移を伴うイベントとL2 transitionの不一致
 - 未使用operationId
 - 未翻訳キー
 
@@ -35,3 +37,11 @@ warningは存在しない。
 
 検証は途中で停止しない。
 全検査を実行し、最後にerrorがあればexit 1。
+
+---
+
+## 出力
+
+- error / info の件数の要約で終わる
+- i18n の欠落（error）・未翻訳（info）は locale ごとに集計して表示する（`--verbose` で全件）
+- 同じ内容の診断は 1 件にまとめる
