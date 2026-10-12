@@ -1,10 +1,10 @@
 # Changelog
 
-## [Unreleased] — 破壊的変更を含む新しい版
+## [Unreleased] — 2.0.0
 
 **目的**: ① AI が効率的に動作できる ② 人間向けドキュメントの効率的なソース。レイヤー（L2 / L3 / L4）を保ったまま、重複をなくし、構造的な SSOT にした。
 
-> **利用側へ**: 書式が変わる。公開前に、1.x の利用側は `~1.1.8` に固定すること。移行は `mobilespec migrate`。
+> **利用側へ**: 書式が変わる。公開前に、1.x の利用側は `~1.1.8` に固定すること。移行は `mobilespec migrate`。再利用ワークフロー `sdd-check.yml@main` を使う利用側は、`mobilespec_version: 1.1.8` を指定して 1.x に留めること（既定は 2 になった）。
 
 ### Breaking
 
@@ -14,6 +14,9 @@
 - L4: 遷移の行き先を持てない（`navigate` / `navigateStack` は L2 へ。L4 からは `go` で L2 の遷移を参照）。`state` は型付き。`conditions` は式。`events` は `steps`（`mutate` / `refetch` / `set` / `go` / `external`）
 - 重複・置き場所の誤りは error になる（正しい置き場所を案内する）
 - CLI: 出力形式が変わった（要約行、i18n は locale ごとの集計）
+
+- CLI: 旧 `mermaid` / `i18n` / `openapi-check` を削除（`update` / `check` に統合）。`update` は ja.json・索引・遷移図の更新になった。ライブラリの exports は `.` と `./validate` のみ（`./mermaid` などを削除）
+- `sdd-check.yml` は `check` と `update --check` を実行する（`openapi-check` を廃止。`openapi_path` は `check` に渡す）
 
 ### Added
 

@@ -1,4 +1,4 @@
-// src/commands/new.ts — 最小の有効な画面ファイル（L2 / L3 / L4）を作る（書式を暗記しなくてよい）
+// src/commands/new.ts — 最小の画面ファイル（L2 / L3 / L4）を作る（書式を暗記しなくてよい）。接続（どこから遷移するか）と文言は、これから足す
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -35,7 +35,7 @@ export function runNew(options: {
   const files: Array<[string, string]> = [
     [
       `${LAYER_DIRS.L2.dir}/${group}/${id}${LAYER_DIRS.L2.ext}`,
-      `name: ${options.name ?? id}\ngroup: ${group}\n# summary: 1 行の要約（一覧・索引に出る）\n# description: 人向けの説明（ドキュメント用）\ntransitions: []\n`,
+      `name: ${JSON.stringify(options.name ?? id)}\ngroup: ${group}\n# summary: 1 行の要約（一覧・索引に出る）\n# description: 人向けの説明（ドキュメント用）\ntransitions: []\n`,
     ],
     [`${LAYER_DIRS.L3.dir}/${id}${LAYER_DIRS.L3.ext}`, `layout:\n  type: column\n  children: []\n`],
     [`${LAYER_DIRS.L4.dir}/${id}${LAYER_DIRS.L4.ext}`, `events: {}\n`],
