@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { buildContext, renderContext } from '../commands/context.js';
+import { exportModel, renderDocs, writeDocs } from '../commands/docs.js';
 import { runMigrate } from '../commands/migrate.js';
 import { runNew } from '../commands/new.js';
 import { runUpdate } from '../commands/update.js';
@@ -26,6 +27,9 @@ AI 向け
   context <screen-id> [--format json] [--docs]       1 画面ぶんの文脈（L2 / L3 / L4 + 前後の遷移 + API + 文言）
   new <screen-id> --group <g> [--name <ja>]          最小の有効な画面ファイル（L2 / L3 / L4）を作る
   guide                                              AI 向けの短い仕様を出力する
+人間向け
+  docs [--out <dir>]                                 Markdown + Mermaid のドキュメントを出す（既定: .mobilespec/docs）
+  export                                             全体の機械可読モデル（JSON）を出力する
 移行
   migrate [--to <dir>]                               旧体系（1.x）→ version 2 に変換する。--to なしは dry-run（検証結果だけ報告）
 生成
@@ -54,6 +58,7 @@ async function main(): Promise<void> {
       check: { type: 'boolean' },
       docs: { type: 'boolean' },
       to: { type: 'string' },
+      out: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -125,6 +130,20 @@ async function main(): Promise<void> {
       );
       if (!fs.existsSync(file)) fail(`ガイドが見つかりません: ${file}`);
       process.stdout.write(fs.readFileSync(file, 'utf8'));
+      return;
+    }
+
+    case 'docs': {
+      const r = validate({ specsDir, schemaDir, openapiPath });
+      const out = path.resolve(values.out ?? path.join(specsDir, '.mobilespec', 'docs'));
+      const written = writeDocs(out, renderDocs(r.project, r.edges, r.openapi));
+      console.log(`✅ ${written.length} ファイルを出力しました: ${out}`);
+      return;
+    }
+
+    case 'export': {
+      const r = validate({ specsDir, schemaDir, openapiPath });
+      console.log(JSON.stringify(exportModel(r.project, r.edges, r.openapi), null, 2));
       return;
     }
 
