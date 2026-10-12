@@ -169,7 +169,7 @@ export function loadOpenApi(absPath: string): OpenApiLoad {
   return { ok: true, index: { file: absPath, operations } };
 }
 
-/** メソッド + パスから operationId を引く（migrate 用。`{id}` と `{venueId}` の違いは無視する） */
+/** メソッド + パスから operationId を引く（migrate 用。`{id}` と `{name}` の違いは無視する） */
 export function findOperation(
   index: OpenApiIndex,
   method: string,

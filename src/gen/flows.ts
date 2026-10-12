@@ -4,6 +4,9 @@ import { type Project, asObj } from '../core/model.js';
 import { EXTERNAL_TARGET } from '../core/names.js';
 import { groupedScreenIds } from './order.js';
 
+/** Mermaid の予約語（end など）やグループ名との衝突を避けるため、画面のノードには接頭辞を付ける */
+const nodeId = (id: string): string => (id === EXTERNAL_TARGET ? id : `s_${id}`);
+
 const esc = (s: string): string => s.replace(/"/g, '&quot;').replace(/\n/g, ' ');
 
 /** 画面 1 つを中心にした遷移図（その画面への遷移と、その画面からの遷移）。edges は全体 */
@@ -22,11 +25,11 @@ export function renderFlowchart(project: Project, edges: Edge[], only?: string):
   for (const { group, ids: groupIds } of groupedScreenIds(project)) {
     const members = groupIds.filter((id) => !only || ids.has(id));
     if (members.length === 0) continue;
-    lines.push(`  subgraph ${group}["${esc(group)}"]`);
+    lines.push(`  subgraph grp_${group}["${esc(group)}"]`);
     for (const id of members) {
       const l2 = asObj(project.screens.get(id)?.l2?.data);
       const mark = l2.entry === true ? ' ⭐' : l2.root === true ? ' ◎' : '';
-      lines.push(`    ${id}["${id}${mark}<br/>${esc(String(l2.name ?? ''))}"]`);
+      lines.push(`    s_${id}["${id}${mark}<br/>${esc(String(l2.name ?? ''))}"]`);
     }
     lines.push('  end');
   }
@@ -37,7 +40,7 @@ export function renderFlowchart(project: Project, edges: Edge[], only?: string):
       ? `${e.id} (auto${e.else ? ', else' : e.when ? `: ${e.when}` : ''})`
       : e.id;
     const arrow = e.auto ? '-.->' : '-->';
-    lines.push(`  ${e.from} ${arrow}|"${esc(label)}"| ${e.to}`);
+    lines.push(`  ${nodeId(e.from)} ${arrow}|"${esc(label)}"| ${nodeId(e.to)}`);
   }
   return lines.join('\n');
 }

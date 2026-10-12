@@ -28,6 +28,8 @@ export type OldProject = {
   dir: string;
   config: Doc;
   guards: Array<{ id: string; name?: string; description?: string }>;
+  /** L2.guards.yaml の全文（コメントの退避用） */
+  guardsText?: string;
   screens: Map<string, OldScreen>;
   /** 読み込めなかったファイル */
   problems: string[];
@@ -105,6 +107,12 @@ export function readOldProject(dir: string): OldProject {
         continue;
       }
       const s: OldScreen = screens.get(id) ?? { id };
+      if (s[layer.key]) {
+        problems.push(
+          `${rel}: 画面 "${id}" の ${layer.key.toUpperCase()} が重複しています（${s[layer.key]!.rel} を使い、これは読みません）`
+        );
+        continue;
+      }
       s[layer.key] = { rel, body: parsed.body, text: r.text };
       if (layer.key === 'l2') {
         const parts = f.split('/');
@@ -122,7 +130,7 @@ export function readOldProject(dir: string): OldProject {
       if (f.endsWith('.json') && f !== 'ja.json') passthrough.push(`i18n/${f}`);
     }
   }
-  return { dir, config, guards, screens, problems, passthrough };
+  return { dir, config, guards, guardsText: guardsDoc?.text, screens, problems, passthrough };
 }
 
 /** ファイル内のコメントを集める（変換でコメントが失われても、情報を失わないため）。yaml-language-server 行は除く */

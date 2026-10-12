@@ -13,6 +13,7 @@ export type DiagnosticLevel = 'error' | 'info';
 export type DiagnosticCode =
   // 読み込み・構造
   | 'APP_NOT_FOUND'
+  | 'SCREEN_NOT_FOUND'
   | 'YAML_PARSE_ERROR'
   | 'SCHEMA_INVALID'
   | 'DUPLICATE_ID'

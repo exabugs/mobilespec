@@ -463,7 +463,7 @@ mobilespec migrate --specs-dir <specs-dir> [--openapi <path>] --write    # 書�
 - `state` / `stateData` / `dataSource` / `conditions`（散文）→ 型付きの `state` / `conditions`。型や式を決められないものは `unknown` / `description` のみとし、**散文は失わない**。件数は info に出る
 - `'API: GET /items/{id}'` のような取得元は、OpenAPI を引いて `operationId` を特定し、`data.queries` にする。特定できなければ TODO
 - `update` イベントで、`description` に API 呼び出しがあるものは、`mutate` ステップにする（特定できなければ TODO）
-- 未知のキー（`bleFlow` など）→ `x-<キー>`（拡張。検証しない）
+- 未知のキー（旧体系の独自キーなど）→ `x-<キー>`（拡張。検証しない）
 - 旧 i18n は、ja を捨て（仕様から再生成）、他のロケールはそのまま移す
 - 変換後に `check` を実行し、結果と TODO の一覧を出す。変換は情報を失わない
 

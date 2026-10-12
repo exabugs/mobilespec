@@ -12,13 +12,19 @@ import { operationsOf } from '../gen/index.js';
 const PROSE_KEYS = new Set(['summary', 'description', 'notes', 'links', 'mockup', 'status']);
 
 /** 人向けの散文を取り除く */
-export function stripProse(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(stripProse);
+/** 値の中身がデータ（名前をキーに持つ）の位置。散文のキーと同名でも、取り除かない */
+const DATA_KEYS = new Set(['set', 'args', 'params', 'props', 'constants', 'default', 'enum']);
+
+export function stripProse(v: unknown, top = true): unknown {
+  if (Array.isArray(v)) return v.map((x) => stripProse(x, false));
   if (isObj(v)) {
     return Object.fromEntries(
       Object.entries(v)
-        .filter(([k]) => !PROSE_KEYS.has(k))
-        .map(([k, x]) => [k, stripProse(x)])
+        // 最上位は散文のキーすべて。入れ子では、各項目の説明（文字列の description）だけ
+        .filter(([k, x]) =>
+          top ? !PROSE_KEYS.has(k) : !(k === 'description' && typeof x === 'string')
+        )
+        .map(([k, x]) => [k, DATA_KEYS.has(k) ? x : stripProse(x, false)])
     );
   }
   return v;

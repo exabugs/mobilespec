@@ -118,8 +118,25 @@ export function validate(options: ValidateOptions): ValidationResult {
   let result = diagnostics;
   if (options.screen) {
     const s = project.screens.get(options.screen);
-    const files = new Set([s?.l2?.file, s?.l3?.file, s?.l4?.file].filter(Boolean) as string[]);
-    result = diagnostics.filter((d) => d.file !== undefined && files.has(d.file));
+    if (!s) {
+      result = [
+        ...diagnostics,
+        {
+          code: 'SCREEN_NOT_FOUND',
+          level: 'error',
+          message: `画面 "${options.screen}" がありません（${[...project.screens.keys()].join(', ')}）`,
+          found: options.screen,
+        } as Diagnostic,
+      ];
+    } else {
+      // 他の画面のファイルの診断だけを除く（app.yaml・生成物・全体の診断は常に残す）
+      const others = new Set<string>();
+      for (const [id, o] of project.screens) {
+        if (id === options.screen) continue;
+        for (const f of [o.l2?.file, o.l3?.file, o.l4?.file]) if (f) others.add(f);
+      }
+      result = diagnostics.filter((d) => d.file === undefined || !others.has(d.file));
+    }
   }
 
   return { project, edges, openapi, diagnostics: dedupe(result) };

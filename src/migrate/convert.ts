@@ -8,7 +8,7 @@ import yaml from 'js-yaml';
 import path from 'node:path';
 
 import { type Doc, asArray, asObj, isObj } from '../core/model.js';
-import { NAME, SCREEN_ID } from '../core/names.js';
+import { ITEM_ID, NAME, SCREEN_ID } from '../core/names.js';
 import type { OpenApiIndex, Operation } from '../core/openapi.js';
 import { findApiRef, proseToExpr, resolveApi } from './helpers.js';
 import { type OldProject, type OldScreen, extractComments } from './read.js';
@@ -144,6 +144,7 @@ export function convertProject(
     transitions: Doc[];
     events: Record<string, Doc>;
     names: Map<string, string>;
+    renames: Map<string, string>;
   };
   const built = new Map<string, Built>();
 
@@ -275,6 +276,18 @@ export function convertProject(
       mutations[opId] = { operationId: opId, args: argsFor(op) };
       return opId;
     };
+    const renames = new Map<string, string>();
+    const rn = (k: string): string => {
+      if (ITEM_ID.test(k)) return k;
+      const n = k
+        .replace(/([A-Z])/g, (m) => `_${m.toLowerCase()}`)
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/^_+/, '')
+        .replace(/^[^a-z]/, 'e_$&');
+      renames.set(k, n);
+      bump('ID→スネークケースに改名');
+      return n;
+    };
     const oldEvents: Array<[string, Doc]> = Array.isArray(l4.events)
       ? l4.events
           .filter(isObj)
@@ -283,7 +296,8 @@ export function convertProject(
       : Object.entries(asObj(l4.events))
           .filter(([, v]) => isObj(v))
           .map(([k, v]) => [k, v as Doc] as [string, Doc]);
-    for (const [key, ev] of oldEvents) {
+    for (const [rawKey, ev] of oldEvents) {
+      const key = rn(rawKey);
       const type = typeof ev.type === 'string' ? ev.type : undefined;
       if (type === 'navigate') {
         navEvents.set(key, ev);
@@ -396,7 +410,7 @@ export function convertProject(
       } else {
         bump('条件→散文のみ');
       }
-      const desc = expr && expression === undefined ? description : (description ?? expression);
+      const desc = expr ? description : (description ?? expression);
       if (desc) entry.description = desc;
       conditions[k] = entry;
     }
@@ -466,7 +480,8 @@ export function convertProject(
     for (const t of asArray(l2.transitions)) {
       if (!isObj(t) || typeof t.id !== 'string') continue;
       seen.add(t.id);
-      const nt: Doc = { id: t.id };
+      const nt: Doc = { id: rn(t.id) };
+      if (typeof t.description === 'string') nt.description = t.description;
       if (typeof t.target === 'string') nt.target = t.target;
       if (t.targetContext !== undefined) bump('context廃止');
       if (t.trigger === 'auto') nt.auto = true;
@@ -503,6 +518,11 @@ export function convertProject(
         nt = { id: key, target: ev.targetScreenId };
         transitions.push(nt);
         bump('navigate→L2に新設');
+      }
+      if (typeof ev.targetScreenId === 'string' && nt.target !== ev.targetScreenId) {
+        todos.push(
+          `${id}: 遷移 "${key}" の行き先が L2（${String(nt.target)}）と L4（${ev.targetScreenId}）で食い違っています。L2 の値を残しました`
+        );
       }
       if (isObj(ev.params) && Object.keys(ev.params).length > 0) nt.params = ev.params;
       if (typeof ev.guard === 'string' && nt.when === undefined) nt.when = ev.guard;
@@ -570,13 +590,44 @@ export function convertProject(
       todos.push(
         `${id}: L2 がグループのディレクトリ配下にありません。group を ${fallbackGroup} にしました`
       );
+    const L2_KNOWN = new Set([
+      'id',
+      'name',
+      'group',
+      'entry',
+      'root',
+      'status',
+      'summary',
+      'description',
+      'notes',
+      'links',
+      'mockup',
+      'transitions',
+      'type',
+      'exit',
+      'context',
+      'params',
+    ]);
+    const legacyL2: Doc = {};
+    for (const [k, v] of Object.entries(l2)) {
+      if (L2_KNOWN.has(k)) continue;
+      legacyL2[k.startsWith('x-') ? k : `x-${k}`] = v;
+      bump('未知のキー→x-');
+    }
     const newL2 = ordered(
       {
         name: typeof l2.name === 'string' ? l2.name : id,
         group,
         ...(l2.entry === true && { entry: true }),
+        ...(l2.root === true && { root: true }),
+        ...Object.fromEntries(
+          ['status', 'summary', 'description', 'notes', 'links', 'mockup']
+            .filter((k) => l2[k] !== undefined)
+            .map((k) => [k, l2[k]])
+        ),
         ...(params.length > 0 && { params }),
         transitions,
+        ...legacyL2,
       },
       L2_ORDER
     );
@@ -592,6 +643,7 @@ export function convertProject(
       transitions,
       events,
       names: scopeNames,
+      renames,
     };
   }
 
@@ -613,16 +665,17 @@ export function convertProject(
     const fix = (node: unknown): unknown => {
       if (!isObj(node)) return node;
       const n: Doc = { ...node };
+      if (typeof n.action === 'string' && b.renames.has(n.action))
+        n.action = b.renames.get(n.action);
       if (typeof n.action === 'string' && n.visibleWhen !== undefined) {
         const h = whenOf(n.action);
         const vw = n.visibleWhen;
         if (
           h &&
           typeof vw === 'string' &&
-          // L2 の when が参照できるのは fact だけ。L4 のイベントは state / condition も参照できる
           (b.names.get(vw) === 'fact' ||
-            (h.where === 'L4 のイベント' &&
-              (b.names.get(vw) === 'state' || b.names.get(vw) === 'condition')))
+            b.names.get(vw) === 'state' ||
+            b.names.get(vw) === 'condition')
         ) {
           if (h.holder.when === undefined) {
             h.holder.when = vw;
@@ -645,11 +698,13 @@ export function convertProject(
         }
       }
       if (Array.isArray(n.children)) n.children = n.children.map(fix);
+      if (Array.isArray(n.menu)) n.menu = n.menu.map(fix);
       if (isObj(n.layout)) n.layout = fix(n.layout);
       return n;
     };
     if (isObj(l3.layout)) l3.layout = fix(l3.layout);
     if (Array.isArray(l3.headerRight)) l3.headerRight = l3.headerRight.map(fix);
+    if (Array.isArray(l3.menu)) l3.menu = l3.menu.map(fix);
     b.l3 = ordered(l3, L3_ORDER);
   }
 
@@ -702,8 +757,7 @@ export function convertProject(
   }
 
   const appOpenapi = options.openapiRel;
-  const guardComments = extractComments(''); // L2.guards.yaml のコメントは app.yaml に退避する（呼び出し側が渡す）
-  void guardComments;
+  const guardComments = old.guardsText ? extractComments(old.guardsText) : [];
   const app: Doc = {
     version: 2,
     groups,
@@ -714,6 +768,7 @@ export function convertProject(
       asArray(asObj(old.config.i18n).locales).length > 0 ? asObj(old.config.i18n).locales : ['ja'],
     ...(appOpenapi && { openapi: appOpenapi }),
     ...(Object.keys(facts).length > 0 && { facts }),
+    ...(guardComments.length > 0 && { 'x-legacyComments': guardComments }),
   };
   files.set('app.yaml', dump(app));
 

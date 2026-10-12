@@ -46,9 +46,6 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "dev:validate": "tsx src/validate.ts",
-    "dev:mermaid": "tsx src/generateMermaid.ts",
-    "dev:i18n": "tsx src/generateI18n.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

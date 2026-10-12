@@ -89,7 +89,7 @@ describe('index / flows', () => {
     const r = validate({ specsDir, schemaDir });
     const m = renderFlowchart(r.project, buildGraph(r.project));
     expect(m).toContain('flowchart LR');
-    expect(m).toContain('subgraph home["home"]');
+    expect(m).toContain('subgraph grp_home["home"]');
     expect(m).toContain('home ⭐');
     expect(m).toContain('external(("external"))');
     expect(m).toContain('-.->');
@@ -139,11 +139,25 @@ describe('context: 1 画面ぶんの文脈', () => {
     expect(buildContext(r.project, r.edges, r.openapi, 'nope')).toBeUndefined();
   });
 
-  it('stripProse は、散文のキーを再帰的に取り除く', () => {
-    expect(stripProse({ a: 1, description: 'x', b: [{ summary: 'y', c: 2 }] })).toEqual({
+  it('stripProse: 最上位の散文と各項目の説明だけを取り除き、データの名前は残す', () => {
+    expect(
+      stripProse({
+        summary: 's',
+        a: 1,
+        events: {
+          e: { description: 'x', steps: [{ set: { status: 'closed', description: 'd' } }] },
+        },
+      })
+    ).toEqual({
       a: 1,
-      b: [{ c: 2 }],
+      events: { e: { steps: [{ set: { status: 'closed', description: 'd' } }] } },
     });
+  });
+
+  it('check --screen: 存在しない画面は error。他画面の診断だけを除く', () => {
+    const specsDir = makeProject();
+    const r = validate({ specsDir, schemaDir, screen: 'nosuch' });
+    expect(r.diagnostics.some((d) => d.code === 'SCREEN_NOT_FOUND')).toBe(true);
   });
 });
 
