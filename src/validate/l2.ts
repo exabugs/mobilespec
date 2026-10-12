@@ -10,6 +10,9 @@ import type { YamlFile } from './io.js';
 import { displayId, screenKey } from './keys.js';
 import type { MobileSpecConfig, Screen, Transition } from './types.js';
 
+/** 予約語: アプリ外・SDK 管理の遷移先 */
+export const EXTERNAL_TARGET = 'external';
+
 /* ================================
  * Collect Screens and Transitions
  * ================================ */
@@ -57,6 +60,7 @@ export function collectScreensAndTransitions(
       group: file.group, // ディレクトリ構造から決定
       order: screenOrder,
       entry: screen.entry === true,
+      root: screen.root === true,
       exit: screen.exit === true,
       context: typeof screen.context === 'string' ? screen.context : undefined,
     };
@@ -64,6 +68,17 @@ export function collectScreensAndTransitions(
     // groupOrderMap を使うなら、ここで order を group の優先度に寄せる等も可能だが、
     // 現状は未使用なので保持だけ（将来拡張向け）
     void groupOrderMap;
+
+    // 'external' は予約語（アプリ外の遷移先）。画面 id にすると、遷移先が曖昧になる
+    if (s.id === EXTERNAL_TARGET) {
+      errors.push({
+        code: 'L2_INVALID',
+        level: 'error',
+        message: `screen.id "${EXTERNAL_TARGET}" は予約語です（アプリ外・SDK 管理の遷移先）。別の id にしてください`,
+        meta: { screenId: s.id },
+      });
+      continue;
+    }
 
     const key = screenKey(s.id, s.context);
     if (screens.has(key)) {
@@ -93,6 +108,20 @@ export function collectScreensAndTransitions(
       const targetContext: string | undefined =
         typeof t.targetContext === 'string' ? t.targetContext : undefined;
       const transitionId = t.id as string;
+
+      // 予約語 'external': アプリ外・SDK 管理の遷移先。画面としては存在しない（到達可能性の対象外）
+      if (targetId === EXTERNAL_TARGET) {
+        transitions.push({
+          fromKey,
+          toKey: EXTERNAL_TARGET,
+          label: transitionId,
+          trigger: (t.trigger as 'tap' | 'auto') ?? undefined,
+          guard: typeof t.guard === 'string' ? t.guard : undefined,
+          else: t.else === true,
+          self: false,
+        });
+        continue;
+      }
 
       const candidates = variantsById.get(targetId) ?? [];
       if (candidates.length === 0) {
@@ -298,7 +327,12 @@ export function validateTransitions(
   const reachable = new Set<string>();
   const queue: string[] = [];
 
-  for (const k of entryKeys) {
+  // 起点は entry と root（タブの最上位画面など、アプリのシェルから直接到達できる画面）
+  const rootKeys: string[] = [];
+  for (const [key, s] of screens.entries()) {
+    if (s.root) rootKeys.push(key);
+  }
+  for (const k of [...entryKeys, ...rootKeys]) {
     if (!reachable.has(k)) {
       reachable.add(k);
       queue.push(k);

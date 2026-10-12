@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type { Diagnostic } from '../types/diagnostic.js';
 import { i18nMissingKey, i18nUntranslated } from './diagnostics.js';
+import { headerRightEntries, menuLabelsOf } from './i18nNodes.js';
 import type { YamlFile } from './io.js';
 import type { Screen } from './types.js';
 
@@ -36,6 +37,11 @@ function collectExpectedI18nKeys(l2Screens: Map<string, Screen>, uiFiles: YamlFi
 
     const context = typeof screen.context === 'string' ? screen.context : undefined;
 
+    // headerRight（layout の外）の部品名とメニュー項目の文言
+    for (const e of headerRightEntries(screen)) {
+      keys.add(`${screenPrefix(screenId, context)}.component.${e.id}.label`);
+    }
+
     const layout = screen.layout;
     if (!isObj(layout)) continue;
 
@@ -54,6 +60,11 @@ function collectExpectedI18nKeys(l2Screens: Map<string, Screen>, uiFiles: YamlFi
           const k = `${screenPrefix(screenId, context)}.component.${nodeId}.label`;
           keys.add(k);
         }
+      }
+
+      // メニュー項目の文言（menu[].label）
+      for (const m of menuLabelsOf(node)) {
+        keys.add(`${screenPrefix(screenId, context)}.component.${m.id}.label`);
       }
 
       // children

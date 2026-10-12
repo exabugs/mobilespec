@@ -3,6 +3,7 @@ import type { Diagnostic } from '../types/diagnostic.js';
 import { l3ActionNotInL2 } from './diagnostics.js';
 import type { YamlFile } from './io.js';
 import { displayId, screenKey } from './keys.js';
+import { type L4Details, isLocalEventType } from './l4.js';
 import type { Screen, Transition, UIAction } from './types.js';
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -54,6 +55,20 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
         });
       }
 
+      // メニュー項目の action
+      if (Array.isArray(node.menu)) {
+        for (const item of node.menu) {
+          if (isObj(item) && typeof item.action === 'string') {
+            actions.push({
+              screenId,
+              context,
+              componentId: typeof item.id === 'string' ? item.id : '(no-id)',
+              action: item.action,
+            });
+          }
+        }
+      }
+
       if (Array.isArray(node.children)) {
         for (const child of node.children) traverse(child);
       }
@@ -64,6 +79,11 @@ export function collectUIActions(uiFiles: YamlFile[]): UIAction[] {
     }
 
     if (isObj(screen.layout)) traverse(screen.layout);
+
+    // ヘッダー右側のコンポーネント（headerRight）も UI。メニュー項目（menu[].action）も action を持つ
+    if (Array.isArray(screen.headerRight)) {
+      for (const node of screen.headerRight) traverse(node);
+    }
   }
 
   return actions;
@@ -106,7 +126,11 @@ export function validateL3ScreensExistInL2(
  * Validate L3-L2 Cross
  * ================================ */
 
-export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition[]): Diagnostic[] {
+export function validateL3L2Cross(
+  uiActions: UIAction[],
+  transitions: Transition[],
+  l4Details?: Map<string, L4Details>
+): Diagnostic[] {
   const errors: Diagnostic[] = [];
 
   // L2の遷移IDセットを作成
@@ -115,16 +139,25 @@ export function validateL3L2Cross(uiActions: UIAction[], transitions: Transition
     if (t.label) transitionIds.add(t.label);
   }
 
-  // L3のactionとL2のidが完全一致するか確認
+  // L3のactionは、L2のtransition.id、または同じ画面のL4の「画面内イベント」と完全一致すること
   for (const uiAction of uiActions) {
-    if (!transitionIds.has(uiAction.action)) {
-      errors.push(
-        l3ActionNotInL2(uiAction.action, uiAction.screenId, uiAction.context, uiAction.componentId)
-      );
-    }
+    if (transitionIds.has(uiAction.action)) continue;
+    if (l4Details && isLocalEventOf(l4Details, uiAction)) continue;
+    errors.push(
+      l3ActionNotInL2(uiAction.action, uiAction.screenId, uiAction.context, uiAction.componentId)
+    );
   }
 
   return errors;
+}
+
+/** 画面内イベント（遷移を伴わない L4 イベント: update / updateState / callQuery / callMutation） */
+function isLocalEventOf(l4Details: Map<string, L4Details>, a: UIAction): boolean {
+  const d = l4Details.get(screenKey(a.screenId, a.context));
+  const ev = d?.events?.[a.action];
+  return isLocalEventType(
+    ev && typeof ev === 'object' ? (ev as Record<string, unknown>).type : undefined
+  );
 }
 
 /* ================================

@@ -5,7 +5,6 @@
   "type": "object",
   "required": ["screen"],
   "additionalProperties": false,
-
   "properties": {
     "screen": {
       "type": "object",
@@ -24,31 +23,34 @@
           "enum": ["screen", "choice"],
           "description": "screen: visible UI screen, choice: invisible branching node (guard-based)"
         },
-
         "context": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
         },
-
         "entry": {
           "type": "boolean"
         },
-
         "exit": {
           "type": "boolean"
         },
-
         "transitions": {
           "type": "array",
           "minItems": 0,
           "items": {
             "$ref": "#/$defs/transition"
           }
+        },
+        "root": {
+          "type": "boolean",
+          "description": "entry とは別の到達起点。タブの最上位画面など、アプリのシェルから直接到達できる画面（到達可能性の起点として扱う）"
+        },
+        "description": {
+          "type": "string",
+          "description": "画面の説明（人間向けメモ）"
         }
       }
     }
   },
-
   "$defs": {
     "transition": {
       "type": "object",
@@ -66,13 +68,13 @@
         },
         "target": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "遷移先の screen.id。予約語 'external' は、アプリ外・SDK 管理の遷移先（画面として存在しなくてよい）"
         },
         "targetContext": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
         },
-
         "guard": {
           "type": "string",
           "minLength": 1,
@@ -81,6 +83,10 @@
         "else": {
           "type": "boolean",
           "description": "Default branch for choice node. At most one outgoing transition from a choice node may set else=true."
+        },
+        "description": {
+          "type": "string",
+          "description": "遷移の説明（人間向けメモ）"
         }
       }
     }

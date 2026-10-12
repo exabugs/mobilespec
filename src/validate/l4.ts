@@ -41,6 +41,24 @@ export function collectStateScreens(stateFiles: YamlFile[]): Set<string> {
   return stateScreens;
 }
 
+/** 画面内イベントの type（画面遷移を伴わない） */
+const LOCAL_EVENT_TYPES = new Set([
+  'update',
+  'updateState',
+  'callQuery',
+  'callMutation',
+  'external',
+]);
+
+/**
+ * 画面内イベントか（画面遷移を伴わないイベント）。
+ * navigate / navigateStack は L2 の遷移に対応するが、これらは L2 に載せなくてよい。
+ * 許可する type を列挙している（type の綴り誤りが、照合を素通りしないように）。
+ */
+export function isLocalEventType(type: unknown): boolean {
+  return typeof type === 'string' && LOCAL_EVENT_TYPES.has(type);
+}
+
 /* ================================
  * L4-L2 Cross Validation
  * ================================ */
@@ -135,9 +153,13 @@ export function collectL4Details(stateFiles: YamlFile[]): Map<string, L4Details>
 export function validateL4EventsCross(
   l4Details: Map<string, L4Details>,
   transitions: Transition[],
-  _l2Screens: Map<string, Screen>
+  l2Screens: Map<string, Screen>
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+
+  // navigateStack の steps の遷移先は、L2 の画面として存在すること
+  const l2ScreenIds = new Set<string>([...l2Screens.values()].map((s) => s.id));
+  const unknownStackTargetByScreen = new Map<string, { eventKey: string; target: string }[]>();
 
   // screenKey -> transitionIds
   const transitionIdsByScreenKey = new Map<string, Set<string>>();
@@ -173,7 +195,11 @@ export function validateL4EventsCross(
     }
 
     // (2) L4.events key exists but no L2 transition id
+    //     （画面内イベント = update / updateState / callQuery / callMutation は、L2 に無くて正常）
     for (const eventKey of eventKeys) {
+      const ev = events[eventKey];
+      const type = ev && typeof ev === 'object' ? (ev as Record<string, unknown>).type : undefined;
+      if (isLocalEventType(type)) continue;
       if (!l2Ids.has(eventKey)) {
         const arr = staleEventKeysByScreen.get(screenDisp) ?? [];
         arr.push(eventKey);
@@ -186,6 +212,23 @@ export function validateL4EventsCross(
       if (!ev || typeof ev !== 'object') continue;
 
       const type = (ev as Record<string, unknown>).type;
+
+      if (type === 'navigateStack') {
+        const steps = (ev as Record<string, unknown>).steps;
+        if (Array.isArray(steps)) {
+          for (const step of steps) {
+            const target =
+              step && typeof step === 'object'
+                ? (step as Record<string, unknown>).targetScreenId
+                : undefined;
+            if (typeof target === 'string' && !l2ScreenIds.has(target)) {
+              const arr = unknownStackTargetByScreen.get(screenDisp) ?? [];
+              arr.push({ eventKey, target });
+              unknownStackTargetByScreen.set(screenDisp, arr);
+            }
+          }
+        }
+      }
 
       if (type === 'callQuery') {
         const q = (ev as Record<string, unknown>).query;
@@ -246,6 +289,24 @@ export function validateL4EventsCross(
         screens,
         count: [...staleEventKeysByScreen.values()].reduce((a, b) => a + b.length, 0),
       },
+    });
+  }
+
+  // Emit error: navigateStack の遷移先が L2 に存在しない
+  if (unknownStackTargetByScreen.size) {
+    const screens = [...unknownStackTargetByScreen.keys()].sort((a, b) => a.localeCompare(b));
+    const lines: string[] = [];
+    for (const s of screens) {
+      lines.push(`  ${s}`);
+      for (const it of unknownStackTargetByScreen.get(s) ?? []) {
+        lines.push(`    - ${it.eventKey}: targetScreenId=${it.target}`);
+      }
+    }
+    diagnostics.push({
+      code: 'L4_UNKNOWN_SCREEN',
+      level: 'error',
+      message: `L4.events(navigateStack) の steps が L2 に存在しない画面を参照（実装不能）:\n${lines.join('\n')}`,
+      meta: { screens },
     });
   }
 

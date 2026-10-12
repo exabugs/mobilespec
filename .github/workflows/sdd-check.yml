@@ -1,31 +1,60 @@
 name: sdd-check
 
+# 利用側のリポジトリから呼び出す再利用ワークフロー。
+# 利用側のリポジトリをチェックアウトし、公開済みの @exabugs/mobilespec を使って仕様を検証する。
+#
+# 使い方（利用側）:
+#   jobs:
+#     sdd:
+#       uses: exabugs/mobilespec/.github/workflows/sdd-check.yml@main
+#       with:
+#         specs_dir: specs/mobile
+#         openapi_path: docs/specs/openapi.bundled.yaml   # 任意（リポジトリのルートからの相対パス）
+
 on:
   workflow_call:
     inputs:
       specs_dir:
+        description: 'L2.screenflows / L3.ui / L4.state を含む仕様ディレクトリ（リポジトリのルートからの相対パス）'
         type: string
         required: true
 
-      schema_dir:
+      mobilespec_version:
+        description: '使う @exabugs/mobilespec のバージョン（例: 1.2.0 / 1）。既定は 1（1.x の最新。メジャーの更新で CI が黙って壊れないようにする）'
         type: string
         required: false
-        default: schema
+        default: '1'
 
-      openapi_path:
+      schema_dir:
+        description: 'スキーマのディレクトリ。空なら、パッケージ同梱のスキーマを使う'
         type: string
         required: false
         default: ''
 
+      openapi_path:
+        description: 'OpenAPI（bundled）のパス。リポジトリのルートからの相対パス（mobilespec 1.2 以降。それ未満では仕様ディレクトリ基準）。空なら openapi-check を実行しない'
+        type: string
+        required: false
+        default: ''
+
+      verbose:
+        description: 'i18n の診断を集計せず、全件表示する'
+        type: boolean
+        required: false
+        default: false
+
+      # --- 以下は後方互換のために残している（効果なし）。warning は存在しない方針のため ---
       fail_on_warnings:
+        description: '廃止（効果なし）'
         type: boolean
         required: false
         default: true
 
       upload_artifacts:
+        description: 'check は生成物を作らないため、通常は不要'
         type: boolean
         required: false
-        default: true
+        default: false
 
       artifact_name:
         type: string
@@ -49,28 +78,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - run: npm ci
-      - run: npm run build
-
-      # SDD: validate + mermaid + i18n を一発で
+      # 検証（read-only。ファイルは生成・更新しない）。error が 1 件でもあれば失敗する
       - name: mobilespec check
+        env:
+          SPECS_DIR: ${{ inputs.specs_dir }}
+          SCHEMA_DIR: ${{ inputs.schema_dir }}
+          VERSION: ${{ inputs.mobilespec_version }}
+          VERBOSE: ${{ inputs.verbose }}
         run: |
-          node dist/bin/cli.js check \
-            --specs-dir "${{ inputs.specs_dir }}" \
-            --schema-dir "${{ inputs.schema_dir }}" \
-            ${{ inputs.fail_on_warnings && '--fail-on-warnings' || '--no-fail-on-warnings' }}
+          args=(check --specs-dir "$SPECS_DIR")
+          if [ -n "$SCHEMA_DIR" ]; then args+=(--schema-dir "$SCHEMA_DIR"); fi
+          if [ "$VERBOSE" = "true" ]; then args+=(--verbose); fi
+          npx -y "@exabugs/mobilespec@$VERSION" "${args[@]}"
 
-      # OpenAPI連携（スケルトンでもI/F固定のため呼べる）
+      # OpenAPI 連携
       - name: mobilespec openapi-check
         if: ${{ inputs.openapi_path != '' }}
+        env:
+          SPECS_DIR: ${{ inputs.specs_dir }}
+          SCHEMA_DIR: ${{ inputs.schema_dir }}
+          OPENAPI: ${{ inputs.openapi_path }}
+          VERSION: ${{ inputs.mobilespec_version }}
         run: |
-          node dist/bin/cli.js openapi-check \
-            --specs-dir "${{ inputs.specs_dir }}" \
-            --schema-dir "${{ inputs.schema_dir }}" \
-            --openapi "${{ inputs.openapi_path }}" \
-            ${{ inputs.fail_on_warnings && '--fail-on-warnings' || '--no-fail-on-warnings' }}
+          args=(openapi-check --specs-dir "$SPECS_DIR" --openapi "$OPENAPI")
+          if [ -n "$SCHEMA_DIR" ]; then args+=(--schema-dir "$SCHEMA_DIR"); fi
+          npx -y "@exabugs/mobilespec@$VERSION" "${args[@]}"
 
       - name: upload artifacts
         if: ${{ inputs.upload_artifacts }}

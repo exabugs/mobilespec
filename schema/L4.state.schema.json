@@ -5,7 +5,6 @@
   "type": "object",
   "required": ["screen"],
   "additionalProperties": false,
-
   "properties": {
     "screen": {
       "type": "object",
@@ -23,69 +22,114 @@
         "state": {
           "type": "object",
           "description": "画面ローカル状態の定義（キー: 変数名、値: 説明文字列）",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "dataSource": {
           "type": "object",
           "description": "状態の取得元（キー: 変数名、値: 取得元の説明文字列）",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "states": {
           "type": "array",
           "minItems": 0,
-          "items": { "$ref": "#/$defs/state" }
+          "items": {
+            "$ref": "#/$defs/state"
+          }
         },
         "data": {
           "$ref": "#/$defs/data"
         },
         "conditions": {
           "type": "object",
-          "additionalProperties": { "type": "string" }
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "events": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/event" }
+          "additionalProperties": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "stateData": {
+          "type": "object",
+          "description": "状態の初期値・例（キー: 変数名、値: 任意）。型付きの状態定義は今後の拡張",
+          "additionalProperties": true
+        },
+        "constants": {
+          "type": "object",
+          "description": "画面で使う定数（キー: 名前、値: 任意）",
+          "additionalProperties": true
+        },
+        "onEnterEffects": {
+          "type": "object",
+          "description": "画面表示時に行う処理（キー: 名前、値: 説明）",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "patternProperties": {
+        "^x-": {
+          "description": "拡張プロパティ（検証対象外。プロジェクト固有のメモ用）"
         }
       }
     }
   },
-
   "$defs": {
     "state": {
       "type": "object",
       "required": ["id", "name"],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-        "name": { "type": "string" },
-        "initial": { "type": "boolean" }
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "initial": {
+          "type": "boolean"
+        }
       }
     },
-
     "data": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "queries": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/opRef" }
+          "additionalProperties": {
+            "$ref": "#/$defs/opRef"
+          }
         },
         "mutations": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/opRef" }
+          "additionalProperties": {
+            "$ref": "#/$defs/opRef"
+          }
         }
       }
     },
-
     "opRef": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "operationId": { "type": "string", "minLength": 1 },
-        "selectRoot": { "type": "string", "minLength": 1 }
+        "operationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "selectRoot": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-
     "mutationOptions": {
       "type": "object",
       "description": "TanStack mutation の挙動設定",
@@ -114,22 +158,125 @@
         }
       }
     },
-
     "event": {
-      "oneOf": [
-        { "$ref": "#/$defs/navigateEvent" },
-        { "$ref": "#/$defs/updateEvent" },
-        { "$ref": "#/$defs/callQueryEvent" },
-        { "$ref": "#/$defs/callMutationEvent" }
+      "type": "object",
+      "description": "画面イベント。type で分岐し、一致した定義のエラーだけを報告する",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "navigate",
+            "navigateStack",
+            "update",
+            "updateState",
+            "callQuery",
+            "callMutation",
+            "external"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigate"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/navigateEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigateStack"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/navigateStackEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "update"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/updateEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "updateState"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/updateStateEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "callQuery"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/callQueryEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "callMutation"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/callMutationEvent"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "external"
+              }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "$ref": "#/$defs/externalEvent"
+          }
+        }
       ]
     },
-
     "navigateEvent": {
       "type": "object",
       "required": ["type", "targetScreenId"],
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "navigate" },
+        "type": {
+          "const": "navigate"
+        },
         "targetScreenId": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$"
@@ -148,16 +295,22 @@
         },
         "mutation": {
           "$ref": "#/$defs/mutationOptions"
+        },
+        "params": {
+          "type": "object",
+          "description": "遷移先の画面に渡すパラメータ",
+          "additionalProperties": true
         }
       }
     },
-
     "updateEvent": {
       "type": "object",
       "required": ["type"],
       "additionalProperties": false,
       "properties": {
-        "type": { "const": "update" },
+        "type": {
+          "const": "update"
+        },
         "description": {
           "type": "string",
           "description": "イベントの動作説明（人間向けメモ）"
@@ -171,13 +324,14 @@
         }
       }
     },
-
     "callQueryEvent": {
       "type": "object",
       "required": ["type", "query"],
       "additionalProperties": true,
       "properties": {
-        "type": { "const": "callQuery" },
+        "type": {
+          "const": "callQuery"
+        },
         "query": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
@@ -189,13 +343,14 @@
         }
       }
     },
-
     "callMutationEvent": {
       "type": "object",
       "required": ["type", "mutation"],
       "additionalProperties": true,
       "properties": {
-        "type": { "const": "callMutation" },
+        "type": {
+          "const": "callMutation"
+        },
         "mutation": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
@@ -204,6 +359,90 @@
         "description": {
           "type": "string",
           "description": "イベントの動作説明（人間向けメモ）"
+        }
+      }
+    },
+    "stackStep": {
+      "type": "object",
+      "required": ["type", "targetScreenId"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["navigate", "push", "replace"],
+          "description": "navigate: 画面（タブ）へ移動 / push: スタックに積む / replace: 置き換える"
+        },
+        "targetScreenId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "navigateStackEvent": {
+      "type": "object",
+      "required": ["type", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "navigateStack"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stackStep"
+          },
+          "description": "順に実行する遷移（複数画面をまたぐ）"
+        },
+        "description": {
+          "type": "string"
+        },
+        "guard": {
+          "type": "string"
+        }
+      }
+    },
+    "updateStateEvent": {
+      "type": "object",
+      "required": ["type", "field"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "updateState"
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "更新する状態の変数名"
+        },
+        "description": {
+          "type": "string"
+        },
+        "guard": {
+          "type": "string"
+        },
+        "mutation": {
+          "$ref": "#/$defs/mutationOptions"
+        }
+      }
+    },
+    "externalEvent": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "external"
+        },
+        "description": {
+          "type": "string",
+          "description": "外部（SDK・OS）に処理を委ねる理由と範囲"
+        },
+        "guard": {
+          "type": "string"
         }
       }
     }
