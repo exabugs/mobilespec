@@ -152,13 +152,12 @@
       },
       "additionalProperties": {
         "type": "object",
-        "required": ["expr"],
         "additionalProperties": false,
         "properties": {
           "expr": {
             "type": "string",
             "minLength": 1,
-            "description": "式。演算子を持つ式は、ここにだけ書ける"
+            "description": "式。演算子を持つ式は、ここにだけ書ける。省略すると「散文だけの条件」（info。式が決まるまでの途中経過）"
           },
           "description": {
             "type": "string"
@@ -188,7 +187,6 @@
   "$defs": {
     "event": {
       "type": "object",
-      "required": ["steps"],
       "additionalProperties": false,
       "properties": {
         "when": {
@@ -206,7 +204,8 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/step"
-          }
+          },
+          "description": "順に実行するステップ。省略すると「手順が未定義」のイベント（info。description だけで説明する途中経過）"
         },
         "onError": {
           "type": "array",

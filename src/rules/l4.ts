@@ -121,6 +121,17 @@ export function checkL4(
     const condRefs = new Map<string, RefNode[]>();
     for (const [name, c] of Object.entries(asObj(l4.conditions))) {
       if (!isObj(c)) continue;
+      if (c.expr === undefined) {
+        out.push({
+          code: 'CONDITION_WITHOUT_EXPR',
+          level: 'info',
+          file,
+          pointer: `/conditions/${name}`,
+          found: name,
+          message: `条件 "${name}" に式（expr）がありません（散文の description だけ）。式にすると、検証と実装の自動化ができます`,
+        });
+        continue;
+      }
       const refs = checker.checkExpression(`/conditions/${name}/expr`, c.expr, 'expr');
       condRefs.set(name, refs);
     }
@@ -366,6 +377,16 @@ export function checkL4(
       if (!isObj(ev)) continue;
       const base = `/events/${key}`;
       if (ev.when !== undefined) checker.checkReference(`${base}/when`, ev.when, 'when');
+      if (ev.steps === undefined) {
+        out.push({
+          code: 'EVENT_WITHOUT_STEPS',
+          level: 'info',
+          file,
+          pointer: base,
+          found: key,
+          message: `イベント "${key}" に手順（steps）がありません（description だけ）。手順にすると、検証と実装の自動化ができます`,
+        });
+      }
       checkSteps(`${base}/steps`, asArray(ev.steps).filter(isObj));
       checkSteps(`${base}/onError`, asArray(ev.onError).filter(isObj));
     }

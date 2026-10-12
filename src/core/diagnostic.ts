@@ -60,7 +60,9 @@ export type DiagnosticCode =
   | 'HTTP_IN_TEXT'
   | 'MISSING_DESCRIPTION'
   | 'MISSING_FILE'
-  | 'REDUNDANT_DESCRIPTION';
+  | 'REDUNDANT_DESCRIPTION'
+  | 'CONDITION_WITHOUT_EXPR'
+  | 'EVENT_WITHOUT_STEPS';
 
 export type Diagnostic = {
   code: DiagnosticCode;

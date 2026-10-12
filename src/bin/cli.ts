@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { buildContext, renderContext } from '../commands/context.js';
+import { runMigrate } from '../commands/migrate.js';
 import { runNew } from '../commands/new.js';
 import { runUpdate } from '../commands/update.js';
 import { renderIndex } from '../gen/index.js';
@@ -25,6 +26,8 @@ AI 向け
   context <screen-id> [--format json] [--docs]       1 画面ぶんの文脈（L2 / L3 / L4 + 前後の遷移 + API + 文言）
   new <screen-id> --group <g> [--name <ja>]          最小の有効な画面ファイル（L2 / L3 / L4）を作る
   guide                                              AI 向けの短い仕様を出力する
+移行
+  migrate [--to <dir>]                               旧体系（1.x）→ version 2 に変換する。--to なしは dry-run（検証結果だけ報告）
 生成
   update [--check]                                   生成物（i18n/ja.json、.mobilespec/）を更新する。--check は検査のみ
 
@@ -50,6 +53,7 @@ async function main(): Promise<void> {
       verbose: { type: 'boolean' },
       check: { type: 'boolean' },
       docs: { type: 'boolean' },
+      to: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -121,6 +125,23 @@ async function main(): Promise<void> {
       );
       if (!fs.existsSync(file)) fail(`ガイドが見つかりません: ${file}`);
       process.stdout.write(fs.readFileSync(file, 'utf8'));
+      return;
+    }
+
+    case 'migrate': {
+      const r = runMigrate({ specsDir, to: values.to, openapiPath });
+      if (!r.ok) fail(r.message);
+      for (const p of r.problems) console.error(`⚠️ 読めませんでした: ${p}`);
+      for (const n of r.report.notes) console.log(n);
+      const counts = Object.entries(r.report.counts).sort(([a], [b]) => (a < b ? -1 : 1));
+      for (const [k, n] of counts) console.log(`  ${k}: ${n}`);
+      for (const t of r.report.todos) console.log(`TODO ${t}`);
+      for (const l of r.validation.errors) console.error(l);
+      console.log(r.validation.summary);
+      console.log(
+        r.written ? `✅ 書き出しました: ${r.written}` : '（dry-run: --to <dir> で書き出します）'
+      );
+      if (r.validation.errorCount > 0) process.exit(1);
       return;
     }
 
