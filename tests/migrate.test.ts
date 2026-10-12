@@ -122,6 +122,28 @@ describe('migrate', () => {
     expect(home).not.toContain('screen:');
   });
 
+  it('同名のイベントと遷移は、遷移の名前を変えて go で参照する', () => {
+    const dir = oldProject();
+    writeFile(
+      path.join(dir, 'L4.state/detail.state.yaml'),
+      `
+screen:
+  id: detail
+  events:
+    back:
+      type: update
+      description: 保存してから戻る
+`
+    );
+    const to = path.join(mkTempDir('new-'), 'out');
+    const r = runMigrate({ specsDir: dir, to });
+    expect(r.ok).toBe(true);
+    const l2 = fs.readFileSync(path.join(to, 'L2.screenflows/main/detail.flow.yaml'), 'utf8');
+    expect(l2).toContain('back_go');
+    const l4 = fs.readFileSync(path.join(to, 'L4.state/detail.state.yaml'), 'utf8');
+    expect(l4).toContain('go: back_go');
+  });
+
   it('書き出し先が空でなければ失敗する', () => {
     const dir = oldProject();
     const r = runMigrate({ specsDir: dir, to: mkTempDir('busy-') + '' });

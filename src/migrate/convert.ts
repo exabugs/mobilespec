@@ -401,6 +401,16 @@ export function convertProject(
       conditions[k] = entry;
     }
 
+    for (const name of Object.keys(conditions)) {
+      const st = stateByName.get(name);
+      if (!st) continue;
+      if (st.description) {
+        const c = conditions[name];
+        c.description = [c.description, st.description].filter(Boolean).join(' / ');
+      }
+      stateByName.delete(name); // 名前は画面内で一意。派生する条件を残す
+      bump('state→同名の条件に統合');
+    }
     /* ---- L4 本体 ---- */
     const state: Doc[] = [];
     for (const st of stateByName.values()) {
@@ -463,6 +473,25 @@ export function convertProject(
       if (typeof t.guard === 'string') nt.when = t.guard;
       if (t.else === true) nt.else = true;
       transitions.push(nt);
+    }
+    // 同じ画面への遷移（旧体系で画面内の操作を表すための代用）は、同名の L4 イベントがあれば、イベントだけを残す
+    for (let i = transitions.length - 1; i >= 0; i--) {
+      const t = transitions[i];
+      if (t.target === id && typeof t.id === 'string' && events[t.id] !== undefined) {
+        transitions.splice(i, 1);
+        bump('L2自己遷移→L4イベントに一本化');
+      }
+    }
+    // 同名のイベントと遷移（イベントが処理をして、画面を移る）: 遷移の名前を変え、イベントの最後で go する
+    for (const t of transitions) {
+      const ev = typeof t.id === 'string' ? events[t.id] : undefined;
+      if (!ev || t.auto === true) continue;
+      const renamed = `${String(t.id)}_go`;
+      const steps = Array.isArray(ev.steps) ? ev.steps : [];
+      ev.steps = [...steps, { go: renamed }];
+      if (t.when !== undefined && ev.when === undefined) ev.when = t.when;
+      t.id = renamed;
+      bump('同名のイベントと遷移→go');
     }
     // L4 の navigate / navigateStack を L2 に統合（遷移は L2 だけが持つ）
     const addDescription = (nt: Doc, ev: Doc) => {
@@ -590,9 +619,10 @@ export function convertProject(
         if (
           h &&
           typeof vw === 'string' &&
-          b.names.has(vw) &&
-          b.names.get(vw) !== 'query' &&
-          b.names.get(vw) !== 'mutation'
+          // L2 の when が参照できるのは fact だけ。L4 のイベントは state / condition も参照できる
+          (b.names.get(vw) === 'fact' ||
+            (h.where === 'L4 のイベント' &&
+              (b.names.get(vw) === 'state' || b.names.get(vw) === 'condition')))
         ) {
           if (h.holder.when === undefined) {
             h.holder.when = vw;
