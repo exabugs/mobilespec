@@ -1,0 +1,7 @@
+# app.yaml の例（仕様ディレクトリの直下に置く）
+version: 2
+groups: [home, item]
+locales: [ja, en]
+openapi: ../../docs/specs/openapi.bundled.yaml
+facts:
+  isSignedIn: { description: サインイン済み }

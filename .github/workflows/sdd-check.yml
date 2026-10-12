@@ -20,10 +20,10 @@ on:
         required: true
 
       mobilespec_version:
-        description: '使う @exabugs/mobilespec のバージョン（例: 1.2.0 / 1）。既定は 1（1.x の最新。メジャーの更新で CI が黙って壊れないようにする）'
+        description: '使う @exabugs/mobilespec のバージョン（例: 2.0.0 / 2）。既定は 2（2.x の最新）。1.x の仕様（mobilespec.config.yml）のままなら 1.1.8 に固定すること'
         type: string
         required: false
-        default: '1'
+        default: '2'
 
       schema_dir:
         description: 'スキーマのディレクトリ。空なら、パッケージ同梱のスキーマを使う'
@@ -32,7 +32,7 @@ on:
         default: ''
 
       openapi_path:
-        description: 'OpenAPI（bundled）のパス。リポジトリのルートからの相対パス（mobilespec 1.2 以降。それ未満では仕様ディレクトリ基準）。空なら openapi-check を実行しない'
+        description: 'OpenAPI（bundled）のパス。リポジトリのルートからの相対パス。空なら app.yaml の openapi を使う'
         type: string
         required: false
         default: ''
@@ -86,24 +86,20 @@ jobs:
           SCHEMA_DIR: ${{ inputs.schema_dir }}
           VERSION: ${{ inputs.mobilespec_version }}
           VERBOSE: ${{ inputs.verbose }}
+          OPENAPI: ${{ inputs.openapi_path }}
         run: |
           args=(check --specs-dir "$SPECS_DIR")
+          if [ -n "$OPENAPI" ]; then args+=(--openapi "$OPENAPI"); fi
           if [ -n "$SCHEMA_DIR" ]; then args+=(--schema-dir "$SCHEMA_DIR"); fi
           if [ "$VERBOSE" = "true" ]; then args+=(--verbose); fi
           npx -y "@exabugs/mobilespec@$VERSION" "${args[@]}"
 
-      # OpenAPI 連携
-      - name: mobilespec openapi-check
-        if: ${{ inputs.openapi_path != '' }}
+      # 生成物（ja.json・索引・遷移図）が最新か（read-only）
+      - name: mobilespec update --check
         env:
           SPECS_DIR: ${{ inputs.specs_dir }}
-          SCHEMA_DIR: ${{ inputs.schema_dir }}
-          OPENAPI: ${{ inputs.openapi_path }}
           VERSION: ${{ inputs.mobilespec_version }}
-        run: |
-          args=(openapi-check --specs-dir "$SPECS_DIR" --openapi "$OPENAPI")
-          if [ -n "$SCHEMA_DIR" ]; then args+=(--schema-dir "$SCHEMA_DIR"); fi
-          npx -y "@exabugs/mobilespec@$VERSION" "${args[@]}"
+        run: npx -y "@exabugs/mobilespec@$VERSION" update --check --specs-dir "$SPECS_DIR"
 
       - name: upload artifacts
         if: ${{ inputs.upload_artifacts }}

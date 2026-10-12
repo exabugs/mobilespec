@@ -1,34 +1,15 @@
-# Configuration
+# 設定（app.yaml）
 
-mobilespec.config.ymlは構造のみ定義する。
-
----
-
-例：
+構造だけを定義する。モード切替・フラグは持たない。
 
 ```yaml
-mermaid:
-  groupOrder:
-    - home
-    - task
-    - venue
-    - misc
-
-i18n:
-  locales:
-    - ja
-    - en
-    - zh-Hans
-    - ko
-
-openapi:
-  path: ../../docs/specs/openapi.bundled.yaml
+version: 2
+groups: [home, item, misc] # 遷移図・索引の並び。L2 の group はここにあるものだけ
+screenOrder: [home, item_list] # 任意: グループ内の並び
+locales: [ja, en] # ja は仕様から生成する元
+openapi: ../../docs/specs/openapi.bundled.yaml # app.yaml からの相対パス
+facts: # アプリ全体の事実。L2 の when と L4 の conditions から参照する
+  isSignedIn: { description: サインイン済み }
 ```
 
----
-
-設計方針：
-
-- buildフラグ禁止
-- validationフラグ禁止
-- 動作モード切替禁止
+`facts` は、1.x の `L2.guards.yaml` の後継。`mobilespec.config.yml` は廃止（`migrate` が変換する）。

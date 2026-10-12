@@ -9,7 +9,7 @@ module.exports = {
   endOfLine: 'lf',
 
   // import 並び替え（@trivago/prettier-plugin-sort-imports）
-  importOrder: ['^@aws-sdk/(.*)$', '^react(.*)$', '^@asanowa/(.*)$', '^@exabugs/(.*)$', '^[./]'],
+  importOrder: ['^@aws-sdk/(.*)$', '^react(.*)$', '^@exabugs/(.*)$', '^[./]'],
   importOrderSeparation: true,
   importOrderSortSpecifiers: true,
   importOrderParserPlugins: ['typescript', 'jsx'],

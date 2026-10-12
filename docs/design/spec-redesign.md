@@ -1,7 +1,7 @@
-# 仕様体系の見直し — レイヤー・重複なし・構造的な SSOT（1.2.0）
+# 仕様体系の見直し — レイヤー・重複なし・構造的な SSOT（2.0.0）
 
-- ステータス: **提案中（レビュー待ち。実装はこの文書の承認後）**
-- 前提: 1.2.0 では破壊的変更を許容する（ユーザー指示）
+- ステータス: **実装済み（初版）。初版の範囲外: `fmt`、`docs --check`、api-usage / facts / i18n のページ、REDUNDANT_DESCRIPTION の検出、export のスキーマ**
+- 前提: 破壊的変更を許容する（版は 2.0.0）
 - **mobilespec の目的は 2 つ**
   1. **AI が効率的に動作できること**
   2. **人間向けのドキュメントを生成するソースとして、効率的に使えること**
@@ -463,7 +463,7 @@ mobilespec migrate --specs-dir <specs-dir> [--openapi <path>] --write    # 書�
 - `state` / `stateData` / `dataSource` / `conditions`（散文）→ 型付きの `state` / `conditions`。型や式を決められないものは `unknown` / `description` のみとし、**散文は失わない**。件数は info に出る
 - `'API: GET /items/{id}'` のような取得元は、OpenAPI を引いて `operationId` を特定し、`data.queries` にする。特定できなければ TODO
 - `update` イベントで、`description` に API 呼び出しがあるものは、`mutate` ステップにする（特定できなければ TODO）
-- 未知のキー（`bleFlow` など）→ `x-<キー>`（拡張。検証しない）
+- 未知のキー（旧体系の独自キーなど）→ `x-<キー>`（拡張。検証しない）
 - 旧 i18n は、ja を捨て（仕様から再生成）、他のロケールはそのまま移す
 - 変換後に `check` を実行し、結果と TODO の一覧を出す。変換は情報を失わない
 

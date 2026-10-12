@@ -1,35 +1,38 @@
 # Changelog
 
-## [Unreleased] — 1.2.0 の予定
+## [Unreleased] — 2.0.0
 
-実際のプロジェクトの仕様が `mobilespec check` を通らない原因を調べ、**仕様の側の誤り**と **mobilespec の側の不足**に分けて、後者を取り込んだ。すべて後方互換（受け付ける仕様が増え、診断が読みやすくなる）。
+**目的**: ① AI が効率的に動作できる ② 人間向けドキュメントの効率的なソース。レイヤー（L2 / L3 / L4）を保ったまま、重複をなくし、構造的な SSOT にした。
+
+> **利用側へ**: 書式が変わる。公開前に、1.x の利用側は `~1.1.8` に固定すること。移行は `mobilespec migrate`。再利用ワークフロー `sdd-check.yml@main` を使う利用側は、`mobilespec_version: 1.1.8` を指定して 1.x に留めること（既定は 2 になった）。
+
+### Breaking
+
+- 仕様の書式を version 2 にした: `app.yaml`（`mobilespec.config.yml` と `L2.guards.yaml` の後継。`facts` が guard の後継）、画面の ID はファイル名（`screen:` の包みと `id` を廃止）
+- L2: `trigger` / `type` / `exit` を廃止（導出）。遷移の `guard` → `when`、`targetContext` と `context` を廃止
+- L3: `action` を持つ部品の `visibleWhen` を禁止（`unavailable: hide | disable`）。式は書けない（参照だけ）
+- L4: 遷移の行き先を持てない（`navigate` / `navigateStack` は L2 へ。L4 からは `go` で L2 の遷移を参照）。`state` は型付き。`conditions` は式。`events` は `steps`（`mutate` / `refetch` / `set` / `go` / `external`）
+- 重複・置き場所の誤りは error になる（正しい置き場所を案内する）
+- CLI: 出力形式が変わった（要約行、i18n は locale ごとの集計）
+
+- CLI: 旧 `mermaid` / `i18n` / `openapi-check` を削除（`update` / `check` に統合）。`update` は ja.json・索引・遷移図の更新になった。ライブラリの exports は `.` と `./validate` のみ（`./mermaid` などを削除）
+- `sdd-check.yml` は `check` と `update --check` を実行する（`openapi-check` を廃止。`openapi_path` は `check` に渡す）
 
 ### Added
 
-- L4: `navigate` の `params`、`navigateStack`（`steps`: navigate / push / replace）、`updateState`（`field`）、`external` イベント
-- L4: `stateData` / `constants` / `onEnterEffects`、`x-` で始まる拡張プロパティ
-- L3: `headerRight`、`menu[]`（`action` も検査）、`states`。`repeatFrom` はキャメルケース・ドット区切りを許可
-- L2: transition の `description`、screen の `description` と `root`（到達可能性の起点）、予約語 `external`（アプリ外の遷移先）
-- CLI: `--verbose`、件数の要約、i18n の診断の locale ごとの集計
-- `navigateStack` の steps が L2 に存在しない画面を参照したときの error
+- `check --format json`（`code` / `file` / `pointer` / `found` / `expected` / `suggest`）、`--screen`、`--verbose`
+- AI 向け: `index`、`context <id>`、`new`、`guide`、`update [--check]`
+- 人間向け: `docs`（Markdown + Mermaid）、`export`（JSON）
+- `migrate`: 旧体系（1.x）→ version 2。dry-run と `--to`。コメントは `x-legacyComments` に退避し、決められないものは TODO として報告
+- 式の解析（構文、存在しない名前、条件の循環。実行はしない）と型の言語（OpenAPI との照合）
+- OpenAPI との接続の検証（`operationId`、`args` の必須・未知・型）
+- `--openapi` の相対パスはカレント基準（仕様ディレクトリ基準にもフォールバック）
 
 ### Changed
 
-- **L3 の action は、L2 の transition.id、または同じ画面の L4 の画面内イベント（update / updateState / callQuery / callMutation / external）と一致すればよい。** 従来は L2 の transition.id だけで、画面内の操作（再読み込み、期間切替など）を書けなかった
-- 画面内イベントは、L2 に無くても「L4.events に存在するが L2 に存在しない eventKey」の info に出ない
-- スキーマ違反のメッセージに、問題のプロパティ名・許可される値を含める。イベントの `oneOf` を `type` による分岐（`if / then`）にして、一致した定義のエラーだけを報告する（従来は全分岐のエラーが出ていた）。同一内容の診断は 1 件にまとめる
-- `--openapi` の相対パスは、カレントディレクトリ基準にした（従来は仕様ディレクトリ基準で、Makefile / package.json の書き方では動かなかった）。カレント基準で見つからず仕様ディレクトリ基準で見つかるときは、後者を使う（後方互換）。config の `openapi.path` は従来どおり仕様ディレクトリ基準
-- 再利用ワークフロー `sdd-check.yml` を、公開済みの `@exabugs/mobilespec` を使う形に作り直した（従来は利用側のリポジトリで `npm run build` を実行しており、動かなかった）。`fail_on_warnings` は効果なし（warning は存在しない方針）
-- 自身の CI を pnpm にし、lint・format check を追加。テストの失敗が CI の失敗になるようにした（従来は `continue-on-error`）
-
-### 出力・ワークフローの変更（利用側の確認事項）
-
-- CLI の出力が変わった: 最後に error / info の件数の要約行を出す。i18n の欠落・未翻訳は locale ごとの集計になった（key ごとに grep しているスクリプトは `--verbose` を使う）。終了コードと、成功時の最後の行（`✅ check OK`）は変わらない
-- 再利用ワークフロー `sdd-check.yml`: `mobilespec_version`（既定 `1` = 1.x の最新）を追加。`schema_dir` の既定は空（パッケージ同梱のスキーマ）、`upload_artifacts` の既定は `false`（`check` は生成物を作らないため）。`openapi_path` はリポジトリのルートからの相対パス（1.2 以降）
-- `headerRight` と `menu[].label` の文言を、i18n の検査・生成（`update`）の対象にした。キーは `…component.<id>.label`（部品名・メニュー項目の id）
-- 予約語 `external` を screen.id にすると error（1.1.x では有効な id だった。遷移先が曖昧になるため）
-- 画面内イベントとみなす type は列挙（update / updateState / callQuery / callMutation / external）。綴り誤りは、L3 の照合を素通りしない
+- 再利用ワークフロー `sdd-check.yml` を、公開済みの `@exabugs/mobilespec` を使う形に作り直した。`mobilespec_version` を追加
+- 自身の CI を pnpm にし、lint・format check を追加。テストの失敗が CI の失敗になる
 
 ### Fixed
 
-- README の「event ↔ L2 transition 不一致 → error」は実装と違っていた（info）。文書を実装に合わせた
+- README の「event ↔ L2 transition 不一致 → error」は実装と違っていた
