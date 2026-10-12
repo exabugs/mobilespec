@@ -1,92 +1,197 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:mobilespec:L2.screenflows",
-  "title": "Screenflow Schema (L2)",
+  "title": "Screen Flow (L2) — 画面間の接続（唯一の正）",
   "type": "object",
-  "required": ["screen"],
+  "required": ["name", "group"],
   "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {
+      "description": "拡張プロパティ（検証しない。プロジェクト固有のメモ用）"
+    }
+  },
   "properties": {
-    "screen": {
-      "type": "object",
-      "required": ["id", "name", "type", "transitions"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "name": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["screen", "choice"],
-          "description": "screen: visible UI screen, choice: invisible branching node (guard-based)"
-        },
-        "context": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "entry": {
-          "type": "boolean"
-        },
-        "exit": {
-          "type": "boolean"
-        },
-        "transitions": {
-          "type": "array",
-          "minItems": 0,
-          "items": {
-            "$ref": "#/$defs/transition"
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "画面タイトル（ja。i18n の元）"
+    },
+    "group": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "app.yaml の groups にあるもの"
+    },
+    "entry": {
+      "type": "boolean",
+      "description": "アプリの起点"
+    },
+    "root": {
+      "type": "boolean",
+      "description": "タブの最上位など、直接到達できる画面（到達可能性の起点）"
+    },
+    "status": {
+      "enum": ["draft", "stable", "deprecated"],
+      "description": "ドキュメントに表示"
+    },
+    "summary": {
+      "type": "string",
+      "description": "1 行の要約（一覧・索引に出る）"
+    },
+    "description": {
+      "type": "string",
+      "description": "人向けの説明（ドキュメント用）"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "補足・既知の制約（ドキュメント用）"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "href"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
           }
-        },
-        "root": {
-          "type": "boolean",
-          "description": "entry とは別の到達起点。タブの最上位画面など、アプリのシェルから直接到達できる画面（到達可能性の起点として扱う）"
-        },
-        "description": {
-          "type": "string",
-          "description": "画面の説明（人間向けメモ）"
         }
+      },
+      "description": "設計書・ADR への参照（ドキュメント用）"
+    },
+    "mockup": {
+      "type": "string",
+      "description": "画面の見本の画像（ドキュメント用）。このファイルからの相対パス"
+    },
+    "params": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/param"
+      },
+      "description": "この画面が受け取るパラメータ（接続の契約）"
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition"
       }
     }
   },
   "$defs": {
+    "param": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "type": ["string", "array", "object"],
+          "description": "型。string / number / integer / boolean / unknown、[T]、{ a: T, b: 'T?' }、{ $ref }"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enum": {
+          "type": "array"
+        },
+        "default": {}
+      }
+    },
     "transition": {
       "type": "object",
-      "required": ["id", "trigger", "target"],
+      "required": ["id"],
       "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["target"]
+        },
+        {
+          "required": ["stack"]
+        }
+      ],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Semantic action id (open_xxx, back_to_xxx, reload_xxx)"
-        },
-        "trigger": {
-          "type": "string",
-          "enum": ["tap", "auto"]
+          "description": "遷移の ID。L3 の action / L4 の go が参照する"
         },
         "target": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "遷移先の screen.id。予約語 'external' は、アプリ外・SDK 管理の遷移先（画面として存在しなくてよい）"
+          "description": "遷移先の画面 ID。予約語 external は、アプリ外・SDK 管理の遷移先"
         },
-        "targetContext": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
+        "stack": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stackStep"
+          },
+          "description": "複数画面にまたがる遷移（target の代わり）"
         },
-        "guard": {
+        "params": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "行き先の params への引き渡し（参照 $x.y またはリテラル）"
+        },
+        "auto": {
+          "type": "boolean",
+          "description": "true なら、when が成立したら自動で遷移する"
+        },
+        "when": {
           "type": "string",
           "minLength": 1,
-          "description": "Guard condition name (boolean). When present, transition is taken only if guard evaluates true."
+          "description": "遷移できる条件。参照だけ（演算子を持つ式は L4 の conditions に書く）"
         },
         "else": {
           "type": "boolean",
-          "description": "Default branch for choice node. At most one outgoing transition from a choice node may set else=true."
+          "description": "他の auto がどれも成立しないときの分岐"
         },
         "description": {
+          "type": "string"
+        }
+      }
+    },
+    "stackStep": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "navigate": {
+          "$ref": "#/$defs/stepBody"
+        },
+        "push": {
+          "$ref": "#/$defs/stepBody"
+        },
+        "replace": {
+          "$ref": "#/$defs/stepBody"
+        }
+      }
+    },
+    "stepBody": {
+      "type": "object",
+      "required": ["to"],
+      "additionalProperties": false,
+      "properties": {
+        "to": {
           "type": "string",
-          "description": "遷移の説明（人間向けメモ）"
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": true
         }
       }
     }

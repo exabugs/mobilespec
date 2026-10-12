@@ -1,11 +1,9 @@
 // src/report.ts
 //
-// 診断の表示。件数が多い i18n の診断は locale ごとに集計し、本質的なエラーが埋もれないようにする。
-// すべてを見たいときは verbose（CLI の --verbose）。
-import type { Diagnostic } from './types/diagnostic.js';
-
-/** 集計時に locale ごとに表示するキーの数 */
-const SAMPLE_KEYS_PER_LOCALE = 5;
+// 診断の表示。
+// - テキスト: 人向け。info は集計して、本質的なエラーが埋もれないようにする（--verbose で全件）
+// - JSON: AI 向け。file + pointer + found / expected / suggest で、自力で直せる（A4）
+import type { Diagnostic } from './core/diagnostic.js';
 
 export type Report = {
   /** error の行（stderr に出す） */
@@ -18,31 +16,22 @@ export type Report = {
   summary: string;
 };
 
-type LocaleKey = { locale: string; key: string };
+/** info を集計せず全件出す件数の上限（これを超える種類は、先頭の数件 + 件数にする） */
+const INFO_SAMPLE = 3;
+const INFO_COLLAPSE_OVER = 5;
 
-function groupByLocale(items: Diagnostic[]): Map<string, string[]> {
-  const byLocale = new Map<string, string[]>();
-  for (const d of items) {
-    const m = d.meta as LocaleKey | undefined;
-    const locale = typeof m?.locale === 'string' ? m.locale : '?';
-    const key = typeof m?.key === 'string' ? m.key : '?';
-    byLocale.set(locale, [...(byLocale.get(locale) ?? []), key]);
-  }
-  return byLocale;
+function where(d: Diagnostic): string {
+  if (!d.file) return '';
+  return d.pointer ? `${d.file}#${d.pointer}` : d.file;
 }
 
-function aggregateI18n(items: Diagnostic[], label: string, mark: string): string[] {
-  const lines: string[] = [];
-  for (const [locale, keys] of groupByLocale(items)) {
-    const sample = keys.slice(0, SAMPLE_KEYS_PER_LOCALE).join(', ');
-    const rest = keys.length - SAMPLE_KEYS_PER_LOCALE;
-    lines.push(
-      `${mark} ${label}: locale="${locale}" ${keys.length} 件（例: ${sample}${
-        rest > 0 ? ` ... +${rest}` : ''
-      }）。一覧は --verbose`
-    );
-  }
-  return lines;
+function line(mark: string, d: Diagnostic): string {
+  const w = where(d);
+  const extra =
+    d.expected && d.expected.length > 0 && d.expected.length <= 8
+      ? `（候補: ${d.expected.join(', ')}）`
+      : '';
+  return `${mark} ${w ? `${w} — ` : ''}${d.message}${d.suggest ? '' : extra}`;
 }
 
 export function buildReport(
@@ -51,41 +40,41 @@ export function buildReport(
 ): Report {
   const errors = diagnostics.filter((d) => d.level === 'error');
   const infos = diagnostics.filter((d) => d.level === 'info');
-
-  // 同じ内容の診断は 1 件にまとめる
-  const dedupe = (list: Diagnostic[]): Diagnostic[] => {
-    const seen = new Set<string>();
-    return list.filter((d) => {
-      if (seen.has(d.message)) return false;
-      seen.add(d.message);
-      return true;
-    });
-  };
-
-  const errorLines: string[] = [];
+  const errorLines = errors.map((d) => line('❌', d));
   const infoLines: string[] = [];
 
   if (options.verbose) {
-    for (const d of dedupe(errors)) errorLines.push(`❌ ${d.message}`);
-    for (const d of dedupe(infos)) infoLines.push(`ℹ️ ${d.message}`);
+    for (const d of infos) infoLines.push(line('ℹ️', d));
   } else {
-    const missing = errors.filter((d) => d.code === 'I18N_MISSING_KEY');
-    for (const d of dedupe(errors.filter((e) => e.code !== 'I18N_MISSING_KEY'))) {
-      errorLines.push(`❌ ${d.message}`);
-    }
-    errorLines.push(...aggregateI18n(missing, 'i18n 不整合（キーが存在しません）', '❌'));
-
+    // i18n の未翻訳は、ロケールごとの 1 行に集計する
     const untranslated = infos.filter((d) => d.code === 'I18N_UNTRANSLATED');
-    for (const d of dedupe(infos.filter((i) => i.code !== 'I18N_UNTRANSLATED'))) {
-      infoLines.push(`ℹ️ ${d.message}`);
+    const rest = infos.filter((d) => d.code !== 'I18N_UNTRANSLATED');
+
+    // 同じ種類の info が多いときは、先頭の数件 + 件数にする
+    const byCode = new Map<string, Diagnostic[]>();
+    for (const d of rest) byCode.set(d.code, [...(byCode.get(d.code) ?? []), d]);
+    for (const list of byCode.values()) {
+      if (list.length <= INFO_COLLAPSE_OVER) {
+        for (const d of list) infoLines.push(line('ℹ️', d));
+      } else {
+        for (const d of list.slice(0, INFO_SAMPLE)) infoLines.push(line('ℹ️', d));
+        infoLines.push(
+          `ℹ️ …ほか ${list.length - INFO_SAMPLE} 件（${list[0].code}）。全件は --verbose`
+        );
+      }
     }
-    infoLines.push(...aggregateI18n(untranslated, '未翻訳', 'ℹ️'));
+    for (const d of untranslated) {
+      const m = d.meta as { locale?: string; count?: number; keys?: string[] } | undefined;
+      const sample = (m?.keys ?? []).slice(0, 3).join(', ');
+      infoLines.push(
+        `ℹ️ 未翻訳: locale="${m?.locale ?? '?'}" ${m?.count ?? '?'} 件（例: ${sample}）。全件は --verbose`
+      );
+    }
   }
 
   const summary = `error ${errors.length} 件 / info ${infos.length} 件${
-    options.verbose ? '' : '（i18n は集計表示。--verbose で全件）'
+    options.verbose ? '' : '（info は集計表示。--verbose で全件）'
   }`;
-
   return {
     errors: errorLines,
     infos: infoLines,
@@ -93,4 +82,25 @@ export function buildReport(
     infoCount: infos.length,
     summary,
   };
+}
+
+/** 機械可読な形（AI 向け）。キーは安定させる */
+export function toJson(diagnostics: Diagnostic[]): string {
+  const errors = diagnostics.filter((d) => d.level === 'error');
+  const body = {
+    ok: errors.length === 0,
+    errors: errors.length,
+    infos: diagnostics.length - errors.length,
+    diagnostics: diagnostics.map((d) => ({
+      code: d.code,
+      level: d.level,
+      ...(d.file !== undefined && { file: d.file }),
+      ...(d.pointer !== undefined && { pointer: d.pointer }),
+      message: d.message,
+      ...(d.found !== undefined && { found: d.found }),
+      ...(d.expected !== undefined && { expected: d.expected }),
+      ...(d.suggest !== undefined && { suggest: d.suggest }),
+    })),
+  };
+  return JSON.stringify(body, null, 2);
 }

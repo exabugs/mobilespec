@@ -1,448 +1,254 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:mobilespec:L4.state",
-  "title": "State Schema (L4)",
+  "title": "State / Data / Behavior (L4)",
   "type": "object",
-  "required": ["screen"],
   "additionalProperties": false,
-  "properties": {
-    "screen": {
-      "type": "object",
-      "required": ["id"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "context": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "state": {
-          "type": "object",
-          "description": "画面ローカル状態の定義（キー: 変数名、値: 説明文字列）",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "dataSource": {
-          "type": "object",
-          "description": "状態の取得元（キー: 変数名、値: 取得元の説明文字列）",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "states": {
-          "type": "array",
-          "minItems": 0,
-          "items": {
-            "$ref": "#/$defs/state"
-          }
-        },
-        "data": {
-          "$ref": "#/$defs/data"
-        },
-        "conditions": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "events": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/event"
-          }
-        },
-        "stateData": {
-          "type": "object",
-          "description": "状態の初期値・例（キー: 変数名、値: 任意）。型付きの状態定義は今後の拡張",
-          "additionalProperties": true
-        },
-        "constants": {
-          "type": "object",
-          "description": "画面で使う定数（キー: 名前、値: 任意）",
-          "additionalProperties": true
-        },
-        "onEnterEffects": {
-          "type": "object",
-          "description": "画面表示時に行う処理（キー: 名前、値: 説明）",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      },
-      "patternProperties": {
-        "^x-": {
-          "description": "拡張プロパティ（検証対象外。プロジェクト固有のメモ用）"
-        }
-      }
+  "patternProperties": {
+    "^x-": {
+      "description": "拡張プロパティ（検証しない。プロジェクト固有のメモ用）"
     }
   },
-  "$defs": {
-    "state": {
-      "type": "object",
-      "required": ["id", "name"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "name": {
-          "type": "string"
-        },
-        "initial": {
-          "type": "boolean"
-        }
-      }
-    },
+  "properties": {
     "data": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "queries": {
           "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+          },
           "additionalProperties": {
-            "$ref": "#/$defs/opRef"
+            "type": "object",
+            "required": ["operationId"],
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "OpenAPI の operationId"
+              },
+              "args": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "OpenAPI の引数への引き渡し（参照 $x.y またはリテラル）"
+              },
+              "description": {
+                "type": "string"
+              },
+              "selectRoot": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         },
         "mutations": {
           "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+          },
           "additionalProperties": {
-            "$ref": "#/$defs/opRef"
+            "type": "object",
+            "required": ["operationId"],
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "OpenAPI の operationId"
+              },
+              "args": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "OpenAPI の引数への引き渡し（参照 $x.y またはリテラル）"
+              },
+              "description": {
+                "type": "string"
+              },
+              "options": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "idempotent": {
+                    "type": "boolean"
+                  },
+                  "retry": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "retryDelay": {
+                    "enum": ["exponential", "linear", "none"]
+                  },
+                  "optimistic": {
+                    "type": "boolean"
+                  },
+                  "errorDisplay": {
+                    "enum": ["toast", "inline", "none"]
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "opRef": {
+    "sources": {
       "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "operationId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "selectRoot": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "mutationOptions": {
-      "type": "object",
-      "description": "TanStack mutation の挙動設定",
-      "additionalProperties": false,
-      "properties": {
-        "idempotent": {
-          "type": "boolean",
-          "description": "POST が冪等（同一キーを何度送っても結果が同じ）かどうか"
-        },
-        "retry": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "失敗時のリトライ回数（TanStack useMutation の retry オプション）"
-        },
-        "retryDelay": {
-          "enum": ["exponential", "linear", "none"],
-          "description": "リトライ間隔の種別。exponential = TanStack デフォルト指数バックオフ（30s 頭打ち）"
-        },
-        "optimistic": {
-          "type": "boolean",
-          "description": "楽観的更新を行うか（type: update のみ有効）"
-        },
-        "errorDisplay": {
-          "enum": ["toast", "inline", "none"],
-          "description": "失敗時のエラー表示方法"
-        }
-      }
-    },
-    "event": {
-      "type": "object",
-      "description": "画面イベント。type で分岐し、一致した定義のエラーだけを報告する",
-      "required": ["type"],
-      "properties": {
-        "type": {
-          "enum": [
-            "navigate",
-            "navigateStack",
-            "update",
-            "updateState",
-            "callQuery",
-            "callMutation",
-            "external"
-          ]
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["kind", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["device", "storage"]
+          },
+          "type": {
+            "type": ["string", "array", "object"],
+            "description": "型。string / number / integer / boolean / unknown、[T]、{ a: T, b: 'T?' }、{ $ref }"
+          },
+          "description": {
+            "type": "string"
+          },
+          "default": {}
         }
       },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "navigate"
-              }
-            },
-            "required": ["type"]
+      "description": "API 以外のデータ源"
+    },
+    "state": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
           },
-          "then": {
-            "$ref": "#/$defs/navigateEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "navigateStack"
-              }
-            },
-            "required": ["type"]
+          "type": {
+            "type": ["string", "array", "object"],
+            "description": "型。string / number / integer / boolean / unknown、[T]、{ a: T, b: 'T?' }、{ $ref }"
           },
-          "then": {
-            "$ref": "#/$defs/navigateStackEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "update"
-              }
-            },
-            "required": ["type"]
+          "enum": {
+            "type": "array"
           },
-          "then": {
-            "$ref": "#/$defs/updateEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "updateState"
-              }
-            },
-            "required": ["type"]
-          },
-          "then": {
-            "$ref": "#/$defs/updateStateEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "callQuery"
-              }
-            },
-            "required": ["type"]
-          },
-          "then": {
-            "$ref": "#/$defs/callQueryEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "callMutation"
-              }
-            },
-            "required": ["type"]
-          },
-          "then": {
-            "$ref": "#/$defs/callMutationEvent"
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "external"
-              }
-            },
-            "required": ["type"]
-          },
-          "then": {
-            "$ref": "#/$defs/externalEvent"
+          "default": {},
+          "description": {
+            "type": "string"
           }
         }
-      ]
+      },
+      "description": "画面ローカルの状態（型付き）"
     },
-    "navigateEvent": {
+    "conditions": {
       "type": "object",
-      "required": ["type", "targetScreenId"],
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["expr"],
+        "additionalProperties": false,
+        "properties": {
+          "expr": {
+            "type": "string",
+            "minLength": 1,
+            "description": "式。演算子を持つ式は、ここにだけ書ける"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "名前付きの式"
+    },
+    "events": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/event"
+      },
+      "description": "画面内の振る舞い。遷移の行き先は書かない"
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "required": ["steps"],
       "additionalProperties": false,
       "properties": {
-        "type": {
-          "const": "navigate"
-        },
-        "targetScreenId": {
+        "when": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
+          "minLength": 1,
+          "description": "実行できる条件。参照だけ（L4 の conditions の名前など）"
         },
-        "description": {
-          "type": "string",
-          "description": "イベントの動作説明（人間向けメモ）"
-        },
-        "navigateMode": {
-          "enum": ["immediate", "afterSuccess"],
-          "description": "immediate: 即遷移してバックグラウンドで送信（冪等 POST 向け） / afterSuccess: 送信成功後に遷移"
-        },
-        "guard": {
-          "type": "string",
-          "description": "イベントが有効になる条件（screen.conditions のキー）"
-        },
-        "mutation": {
-          "$ref": "#/$defs/mutationOptions"
-        },
-        "params": {
-          "type": "object",
-          "description": "遷移先の画面に渡すパラメータ",
-          "additionalProperties": true
-        }
-      }
-    },
-    "updateEvent": {
-      "type": "object",
-      "required": ["type"],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "update"
-        },
-        "description": {
-          "type": "string",
-          "description": "イベントの動作説明（人間向けメモ）"
-        },
-        "guard": {
-          "type": "string",
-          "description": "イベントが有効になる条件（screen.conditions のキー）"
-        },
-        "mutation": {
-          "$ref": "#/$defs/mutationOptions"
-        }
-      }
-    },
-    "callQueryEvent": {
-      "type": "object",
-      "required": ["type", "query"],
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "const": "callQuery"
-        },
-        "query": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "screen.data.queries のキー"
-        },
-        "description": {
-          "type": "string",
-          "description": "イベントの動作説明（人間向けメモ）"
-        }
-      }
-    },
-    "callMutationEvent": {
-      "type": "object",
-      "required": ["type", "mutation"],
-      "additionalProperties": true,
-      "properties": {
-        "type": {
-          "const": "callMutation"
-        },
-        "mutation": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "screen.data.mutations のキー"
-        },
-        "description": {
-          "type": "string",
-          "description": "イベントの動作説明（人間向けメモ）"
-        }
-      }
-    },
-    "stackStep": {
-      "type": "object",
-      "required": ["type", "targetScreenId"],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "enum": ["navigate", "push", "replace"],
-          "description": "navigate: 画面（タブ）へ移動 / push: スタックに積む / replace: 置き換える"
-        },
-        "targetScreenId": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "params": {
-          "type": "object",
-          "additionalProperties": true
-        }
-      }
-    },
-    "navigateStackEvent": {
-      "type": "object",
-      "required": ["type", "steps"],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "navigateStack"
+        "on": {
+          "enum": ["ui", "enter"],
+          "default": "ui",
+          "description": "ui: L3 の action が起動 / enter: 画面表示時"
         },
         "steps": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/stackStep"
+            "$ref": "#/$defs/step"
+          }
+        },
+        "onError": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
           },
-          "description": "順に実行する遷移（複数画面をまたぐ）"
+          "description": "mutate が失敗したときのステップ"
         },
         "description": {
-          "type": "string"
-        },
-        "guard": {
           "type": "string"
         }
       }
     },
-    "updateStateEvent": {
+    "step": {
       "type": "object",
-      "required": ["type", "field"],
+      "minProperties": 1,
+      "maxProperties": 1,
       "additionalProperties": false,
       "properties": {
-        "type": {
-          "const": "updateState"
-        },
-        "field": {
+        "mutate": {
           "type": "string",
-          "minLength": 1,
-          "description": "更新する状態の変数名"
+          "description": "data.mutations のキー"
         },
-        "description": {
-          "type": "string"
+        "refetch": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "data.queries のキーの配列"
         },
-        "guard": {
-          "type": "string"
+        "set": {
+          "type": "object",
+          "description": "{ state の名前: 値（参照またはリテラル） }"
         },
-        "mutation": {
-          "$ref": "#/$defs/mutationOptions"
-        }
-      }
-    },
-    "externalEvent": {
-      "type": "object",
-      "required": ["type"],
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "const": "external"
-        },
-        "description": {
+        "go": {
           "type": "string",
-          "description": "外部（SDK・OS）に処理を委ねる理由と範囲"
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "同じ画面の L2 の遷移 ID。行き先・params は L2 が持つ"
         },
-        "guard": {
-          "type": "string"
+        "external": {
+          "type": "string",
+          "description": "外部（SDK・OS）に処理を委ねる。説明"
         }
       }
     }

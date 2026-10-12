@@ -1,87 +1,67 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:mobilespec:L3.ui",
-  "title": "UI Structure Schema (L3)",
+  "title": "UI Structure (L3)",
   "type": "object",
-  "required": ["screen"],
+  "required": ["layout"],
   "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {
+      "description": "拡張プロパティ（検証しない。プロジェクト固有のメモ用）"
+    }
+  },
   "properties": {
-    "screen": {
+    "layout": {
+      "$ref": "#/$defs/layout"
+    },
+    "headerRight": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "description": "ヘッダー右側の部品"
+    },
+    "states": {
       "type": "object",
-      "required": ["id", "layout"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Screen id (must match L2 screen.id)"
-        },
-        "context": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Optional screen context (e.g. nearby, owned)"
-        },
-        "layoutVariant": {
-          "type": "string",
-          "enum": ["default", "custom", "fullscreen"],
-          "default": "default",
-          "description": "Screen layout variant"
-        },
-        "appBar": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "variant": {
-              "type": "string",
-              "enum": ["default", "back", "close", "none"],
-              "default": "back",
-              "description": "AppBar variant (default=back with back button, use 'default' for entry screens like home)"
-            }
-          }
-        },
-        "bottomBar": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "visible": {
-              "type": "boolean",
-              "default": true,
-              "description": "Show bottom navigation bar"
-            }
-          }
-        },
-        "layout": {
-          "$ref": "#/$defs/layout"
-        },
-        "headerRight": {
-          "type": "array",
-          "description": "ヘッダー右側のコンポーネント（例: メニューボタン）",
-          "items": {
-            "$ref": "#/$defs/node"
-          }
-        },
-        "states": {
-          "type": "object",
-          "description": "画面の状態ごとの表示（キー: 状態名、値: 説明）",
-          "propertyNames": {
-            "pattern": "^[a-z][a-z0-9_]*$"
-          },
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "description": {
-                "type": "string"
-              }
-            }
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
           }
         }
       },
-      "patternProperties": {
-        "^x-": {
-          "description": "拡張プロパティ（検証対象外。プロジェクト固有のメモ用）"
+      "description": "画面の状態ごとの表示（キー: 状態名）"
+    },
+    "layoutVariant": {
+      "type": "string",
+      "enum": ["default", "custom", "fullscreen"]
+    },
+    "appBar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "variant": {
+          "type": "string",
+          "enum": ["default", "back", "close", "none"]
         }
       }
+    },
+    "bottomBar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": {
+          "type": "boolean"
+        }
+      }
+    },
+    "description": {
+      "type": "string"
     }
   },
   "$defs": {
@@ -102,8 +82,7 @@
         },
         "props": {
           "type": "object",
-          "additionalProperties": true,
-          "description": "Layout-level configuration (e.g. columns, gap)"
+          "additionalProperties": true
         }
       }
     },
@@ -113,8 +92,7 @@
       "additionalProperties": false,
       "properties": {
         "component": {
-          "type": "string",
-          "description": "Component type name (e.g. AppBar, HomeCard)"
+          "type": "string"
         },
         "id": {
           "type": "string",
@@ -122,10 +100,32 @@
         },
         "name": {
           "type": "string",
-          "description": "Japanese display name (i18n source)"
+          "description": "表示名（ja。i18n の元）"
         },
-        "layout": {
-          "$ref": "#/$defs/layout"
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "同じ画面の L2 の遷移 ID（auto 以外）、または L4 のイベントのキー"
+        },
+        "unavailable": {
+          "enum": ["hide", "disable"],
+          "default": "hide",
+          "description": "action が使えないとき（遷移・イベントの when が偽）の表示のしかた"
+        },
+        "visibleWhen": {
+          "type": "string",
+          "minLength": 1,
+          "description": "表示条件。参照だけ。action を持つ部品には書けない（可否は when が持つ）"
+        },
+        "repeatFrom": {
+          "type": "string",
+          "minLength": 1,
+          "description": "繰り返しの元（L4 の state / data のパス。参照）"
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "部品の設定。$ で始まる文字列は参照"
         },
         "children": {
           "type": "array",
@@ -133,35 +133,20 @@
             "$ref": "#/$defs/node"
           }
         },
-        "props": {
-          "type": "object",
-          "additionalProperties": true
-        },
-        "action": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Reference to L2 transition.id"
-        },
-        "fixed": {
-          "type": "boolean",
-          "description": "Fixed position (e.g. BottomBar)"
-        },
-        "repeatFrom": {
-          "type": "string",
-          "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)*$",
-          "description": "Repeat source key from L4 state（ドット区切りの参照可）"
-        },
-        "visibleWhen": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "Visibility condition key (evaluated in L4)"
+        "layout": {
+          "$ref": "#/$defs/layout"
         },
         "menu": {
           "type": "array",
-          "description": "メニュー項目（ボタンから開くメニュー）",
           "items": {
             "$ref": "#/$defs/menuItem"
           }
+        },
+        "fixed": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
         }
       }
     },
@@ -179,14 +164,14 @@
         },
         "label": {
           "type": "string",
-          "description": "表示文言（日本語。i18n の元）"
+          "description": "表示文言（ja。i18n の元）"
         },
         "action": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
-          "description": "L2 transition.id、または L4 の画面内イベントのキー"
+          "description": "同じ画面の L2 の遷移 ID、または L4 のイベントのキー"
         },
-        "visibleWhen": {
+        "description": {
           "type": "string"
         }
       }
